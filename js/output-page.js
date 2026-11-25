@@ -853,6 +853,30 @@
         if (typeof applyModeRef === 'function') applyModeRef(mode);
     }
 
+    /**
+     * Remote loading entry point (js/remote-loader.js). Feeds a list of
+     * File-like objects (name + text() + arrayBuffer()) through the same
+     * pipeline as the "Open simulation folder" picker, so a simulation stored
+     * online (Google Drive folder, static hosting) opens from a shared link.
+     * With { autoSmoke: true } the smoke frames are loaded straight away
+     * instead of waiting for the "Load selected data" click.
+     */
+    window.outputPageLoadFolder = async function (files, opts) {
+        const v = ensureViewer();
+        if (!v) return;
+        if (!initialized) {
+            wireControls(v);
+            initialized = true;
+        }
+        await handleSimulationFolder(v, files);
+        const loadBtn = document.getElementById('output-smoke-load');
+        if (opts && opts.autoSmoke && loadBtn && !loadBtn.disabled) {
+            await handleSmokeLoad(v);
+            if (typeof applyModeRef === 'function') applyModeRef(mode);
+        }
+        setTimeout(() => v._onResize(), 0);
+    };
+
     function wireSliceControls(viewer) {
         const folder = document.getElementById('output-slice-folder');
         if (folder) folder.addEventListener('change', (e) => {
