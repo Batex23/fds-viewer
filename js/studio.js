@@ -337,7 +337,12 @@
     let folderInput;
     function openAction(act) {
         if (act === 'open-drive') {
-            if (window.FDSRemote && window.FDSRemote.pickFromDrive) window.FDSRemote.pickFromDrive();
+            const R = window.FDSRemote;
+            if (!R || !R.hasOAuth()) {
+                toast('L’ouverture depuis Google Drive n’est pas encore activée sur ce site (identifiant client OAuth à renseigner).', 6000);
+                return;
+            }
+            R.pickFromDrive();
             return;
         }
         if (act === 'open-folder') {
