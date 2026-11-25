@@ -11,5 +11,5 @@
  * A key can also be passed in the URL with &key=... for testing.
  */
 window.FDS_VIEWER_CONFIG = {
-    driveApiKey: ''
+    driveApiKey: 'AIzaSyA3l0KS7Uzd34B1cMB4DkgGyw2yiFkkhWo'
 };
