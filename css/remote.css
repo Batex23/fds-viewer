@@ -210,3 +210,110 @@
 .rl-modal-foot .btn[aria-disabled="true"] { opacity: var(--disabled-opacity); pointer-events: none; }
 .rl-actions:not([hidden]) { display: flex; justify-content: center; gap: 8px; }
 .rl-actions [hidden] { display: none !important; }
+
+/* ─── Explorateur Google Drive intégré ─────────────────────────────────── */
+.rl-drive-modal {
+    width: min(620px, 100%);
+    max-height: min(720px, calc(100vh - 32px));
+    display: flex;
+    flex-direction: column;
+}
+.rl-drive-tabs {
+    display: flex;
+    gap: 2px;
+    margin: 14px 0 10px;
+    padding: 3px;
+    background: var(--bg-tertiary);
+    border-radius: 10px;
+}
+.rl-drive-tabs button {
+    flex: 1;
+    padding: 7px 8px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.rl-drive-tabs button:hover { color: var(--text-primary); }
+.rl-drive-tabs button[aria-selected="true"] {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    box-shadow: 0 1px 3px rgba(2, 10, 40, .25);
+}
+.rl-drive-search { margin-bottom: 8px; }
+.rl-drive-crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 4px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+}
+.rl-drive-crumbs button {
+    padding: 3px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-secondary);
+    font: inherit;
+    cursor: pointer;
+}
+.rl-drive-crumbs button:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.rl-drive-crumbs button[aria-current] { color: var(--text-primary); font-weight: 600; }
+.rl-drive-sim {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--sp-red, #CE0019) 45%, transparent);
+    border-radius: 10px;
+    background: var(--accent-tint);
+}
+.rl-drive-sim[hidden] { display: none; }
+.rl-drive-sim > span:nth-child(2) { flex: 1; min-width: 0; }
+.rl-drive-sim strong { display: block; font-size: 15px; }
+.rl-drive-sim small { display: block; font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rl-drive-sim-ico, .rl-drive-ico { display: grid; place-items: center; flex: none; }
+.rl-drive-sim-ico svg { width: 24px; height: 24px; color: var(--accent-text); }
+.rl-drive-list {
+    flex: 1;
+    min-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+}
+.rl-drive-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 15px;
+    text-align: left;
+    cursor: pointer;
+}
+button.rl-drive-row:hover, button.rl-drive-row:focus-visible { background: var(--bg-tertiary); outline: none; }
+.rl-drive-ico svg { width: 20px; height: 20px; color: var(--text-muted); }
+.rl-drive-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rl-drive-date { flex: none; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.rl-drive-file { cursor: default; color: var(--text-secondary); font-size: 14px; }
+.rl-drive-sep { padding: 10px 10px 4px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.rl-drive-msg { padding: 24px 12px; text-align: center; font-size: 14px; color: var(--text-muted); }
+.rl-drive-err { color: var(--accent-text); white-space: pre-line; }
+.rl-drive-hint { font-size: 13px; color: var(--text-muted); }
+@media (max-width: 640px) {
+    .rl-drive-tabs button { font-size: 13px; padding: 7px 4px; }
+    .rl-drive-date { display: none; }
+}

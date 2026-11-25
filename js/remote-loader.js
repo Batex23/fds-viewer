@@ -28,7 +28,8 @@
     }
 
     function formatBytes(n) {
-        if (!Number.isFinite(n) || n <= 0) return '0 Mo';
+        if (!Number.isFinite(n) || n <= 0) return '';
+        if (n < 1024) return '< 1 ko';
         if (n < 1024 * 1024) return (n / 1024).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' ko';
         if (n < 1024 ** 3) return (n / 1024 / 1024).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' Mo';
         return (n / 1024 ** 3).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' Go';
@@ -60,9 +61,8 @@
     // partagés), sans partage public. Sans jeton : clé API seule, donc
     // dossiers partagés « Tous les utilisateurs disposant du lien ».
     const GSI_SRC = 'https://accounts.google.com/gsi/client';
-    const GAPI_SRC = 'https://apis.google.com/js/api.js';
     const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
-    const auth = { token: null, expires: 0, client: null, pickerReady: null };
+    const auth = { token: null, expires: 0, client: null };
 
     const hasOAuth = () => !!CFG.googleClientId;
     const tokenValid = () => !!auth.token && Date.now() < auth.expires;
@@ -91,17 +91,11 @@
         return scripts[src];
     }
 
-    /** Précharge les scripts Google : la fenêtre de connexion doit s'ouvrir
-     *  directement dans le clic, sans attente réseau intermédiaire. */
+    /** Précharge le script de connexion Google : la fenêtre de connexion
+     *  doit s'ouvrir directement dans le clic, sans attente réseau. */
     function preloadGoogle() {
         if (!hasOAuth()) return;
         loadScript(GSI_SRC).catch(() => {});
-        if (!auth.pickerReady) {
-            auth.pickerReady = loadScript(GAPI_SRC)
-                .then(() => new Promise(res => window.gapi.load('picker', res)))
-                .catch(e => { auth.pickerReady = null; throw e; });
-            auth.pickerReady.catch(() => {});
-        }
     }
 
     function signIn() {
@@ -143,45 +137,201 @@
         });
     }
 
-    /** Ouvre le sélecteur Google Drive et charge le dossier choisi. */
+    // ── Explorateur Google Drive intégré ─────────────────────────────────
+    // Parcourt Mon Drive, « Partagés avec moi » et les Drives partagés avec
+    // le jeton de l'utilisateur (API Drive seule, sans le sélecteur Google).
+    // Un dossier contenant un .smv est signalé comme simulation FDS.
+    const DRIVES_API = 'https://www.googleapis.com/drive/v3/drives';
+    const DB = { el: null, tab: 'mine', stack: [], seq: 0 };
+
+    async function driveGet(url) {
+        const res = await fetch(url, { headers: authHeaders() });
+        if (!res.ok) throw await httpError(res, '');
+        return res.json();
+    }
+
+    async function listChildren(q, extra) {
+        const out = [];
+        let pageToken = '';
+        for (let page = 0; page < 5; page++) {
+            const url = DRIVE_API + '?q=' + encodeURIComponent(q + ' and trashed = false') +
+                '&fields=' + encodeURIComponent('nextPageToken,files(id,name,mimeType,modifiedTime,size)') +
+                '&orderBy=' + encodeURIComponent('folder,name_natural') +
+                '&pageSize=500&supportsAllDrives=true&includeItemsFromAllDrives=true' + (extra || '') +
+                (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
+            const j = await driveGet(url);
+            out.push(...(j.files || []));
+            pageToken = j.nextPageToken || '';
+            if (!pageToken) break;
+        }
+        return out;
+    }
+
+    const ICO = {
+        folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+        flame: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3-1-5 1-8.5z"/></svg>',
+        drive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 14h.01M11 14h6"/></svg>',
+        file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg>',
+        up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
+    };
+    const fmtDate = d => d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+    function buildDriveBrowser() {
+        const el = document.createElement('div');
+        el.className = 'rl-modal-backdrop rl-drive';
+        el.hidden = true;
+        el.innerHTML =
+            '<div class="rl-modal rl-drive-modal" role="dialog" aria-modal="true" aria-labelledby="rl-drive-title">' +
+            '  <div class="rl-modal-head">' +
+            '    <h2 id="rl-drive-title">Ouvrir depuis Google Drive</h2>' +
+            '    <button type="button" class="rl-x" aria-label="Fermer">&times;</button>' +
+            '  </div>' +
+            '  <div class="rl-drive-tabs" role="tablist">' +
+            '    <button type="button" role="tab" data-tab="mine">Mon Drive</button>' +
+            '    <button type="button" role="tab" data-tab="shared">Partagés avec moi</button>' +
+            '    <button type="button" role="tab" data-tab="drives">Drives partagés</button>' +
+            '  </div>' +
+            '  <form class="rl-drive-search" role="search"><input type="search" class="rl-input" placeholder="Rechercher un dossier par son nom…" aria-label="Rechercher un dossier"></form>' +
+            '  <nav class="rl-drive-crumbs" aria-label="Emplacement"></nav>' +
+            '  <div class="rl-drive-sim" hidden></div>' +
+            '  <div class="rl-drive-list" aria-live="polite"></div>' +
+            '  <div class="rl-modal-foot">' +
+            '    <span class="rl-drive-hint">Choisissez le dossier qui contient le fichier .smv du calcul.</span>' +
+            '    <button type="button" class="btn btn-sm btn-secondary" data-open-here>Ouvrir ce dossier</button>' +
+            '  </div>' +
+            '</div>';
+        document.body.appendChild(el);
+        el.querySelector('.rl-x').addEventListener('click', closeDriveBrowser);
+        el.addEventListener('click', e => { if (e.target === el) closeDriveBrowser(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && !el.hidden) closeDriveBrowser(); });
+        el.querySelector('.rl-drive-tabs').addEventListener('click', e => {
+            const b = e.target.closest('[data-tab]');
+            if (b) { DB.tab = b.dataset.tab; DB.stack = []; renderDrive(); }
+        });
+        el.querySelector('.rl-drive-search').addEventListener('submit', e => {
+            e.preventDefault();
+            const v = el.querySelector('.rl-drive-search input').value.trim();
+            if (!v) return;
+            DB.stack = [{ search: v, name: 'Recherche « ' + v + ' »' }];
+            renderDrive();
+        });
+        el.querySelector('.rl-drive-crumbs').addEventListener('click', e => {
+            const b = e.target.closest('[data-depth]');
+            if (!b) return;
+            DB.stack = DB.stack.slice(0, Number(b.dataset.depth));
+            renderDrive();
+        });
+        el.querySelector('.rl-drive-list').addEventListener('click', e => {
+            const b = e.target.closest('[data-id]');
+            if (!b) return;
+            if (b.dataset.kind === 'sim') { openDriveFolder(b.dataset.id); return; }
+            DB.stack.push({ id: b.dataset.id, name: b.dataset.name, driveId: b.dataset.drive || (current() || {}).driveId || '' });
+            renderDrive();
+        });
+        el.querySelector('[data-open-here]').addEventListener('click', () => {
+            const c = current();
+            if (c && c.id) openDriveFolder(c.id);
+        });
+        el.querySelector('.rl-drive-sim').addEventListener('click', e => {
+            const b = e.target.closest('[data-open]');
+            if (b) openDriveFolder(b.dataset.open);
+        });
+        return el;
+    }
+
+    const current = () => DB.stack[DB.stack.length - 1] || null;
+
+    function closeDriveBrowser() { if (DB.el) DB.el.hidden = true; }
+
+    function openDriveFolder(id) {
+        closeDriveBrowser();
+        try { history.replaceState(null, '', shareLinkForDrive(id)); } catch (_) { /* file:// */ }
+        openRemote({ kind: 'drive', id, key: CFG.driveApiKey || '' });
+    }
+
+    async function renderDrive() {
+        const el = DB.el;
+        const seq = ++DB.seq;
+        el.querySelectorAll('.rl-drive-tabs [data-tab]').forEach(b => {
+            const on = b.dataset.tab === DB.tab && !(current() && current().search);
+            b.setAttribute('aria-selected', String(on));
+        });
+        const rootName = { mine: 'Mon Drive', shared: 'Partagés avec moi', drives: 'Drives partagés' }[DB.tab];
+        const crumbs = el.querySelector('.rl-drive-crumbs');
+        crumbs.innerHTML = [`<button type="button" data-depth="0">${esc(rootName)}</button>`]
+            .concat(DB.stack.map((c, i) => `<span aria-hidden="true">›</span><button type="button" data-depth="${i + 1}" ${i === DB.stack.length - 1 ? 'aria-current="location"' : ''}>${esc(c.name)}</button>`))
+            .join('');
+        const list = el.querySelector('.rl-drive-list');
+        const sim = el.querySelector('.rl-drive-sim');
+        const openHere = el.querySelector('[data-open-here]');
+        const c = current();
+        openHere.disabled = !(c && c.id);
+        sim.hidden = true;
+        list.innerHTML = '<div class="rl-drive-msg">Chargement…</div>';
+        try {
+            let items = [];
+            if (c && c.search) {
+                const term = c.search.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                items = await listChildren(`name contains '${term}' and mimeType = '${FOLDER_MIME}'`, '&corpora=allDrives');
+            } else if (c) {
+                const extra = c.driveId ? '&corpora=drive&driveId=' + encodeURIComponent(c.driveId) : '';
+                items = await listChildren(`'${c.id}' in parents`, extra);
+            } else if (DB.tab === 'mine') {
+                items = await listChildren(`'root' in parents`);
+            } else if (DB.tab === 'shared') {
+                items = await listChildren('sharedWithMe');
+            } else {
+                const j = await driveGet(DRIVES_API + '?pageSize=100&fields=' + encodeURIComponent('drives(id,name)'));
+                items = (j.drives || []).map(d => ({ id: d.id, name: d.name, mimeType: 'drive', driveId: d.id }));
+            }
+            if (seq !== DB.seq) return;
+            const folders = items.filter(f => f.mimeType === FOLDER_MIME || f.mimeType === 'drive');
+            const smv = items.find(f => /\.smv$/i.test(f.name));
+            const others = items.filter(f => f.mimeType !== FOLDER_MIME && f.mimeType !== 'drive');
+            if (smv && c && c.id) {
+                sim.innerHTML = `<span class="rl-drive-sim-ico">${ICO.flame}</span><span><strong>Simulation FDS trouvée</strong><small>${esc(smv.name)} · ${others.length} fichier${others.length > 1 ? 's' : ''}</small></span><button type="button" class="btn btn-sm btn-primary" data-open="${esc(c.id)}">Ouvrir la simulation</button>`;
+                sim.hidden = false;
+            }
+            const row = f => {
+                const isDrive = f.mimeType === 'drive';
+                return `<button type="button" class="rl-drive-row" data-id="${esc(f.id)}" data-name="${esc(f.name)}" ${isDrive ? `data-drive="${esc(f.driveId)}"` : ''}>
+                    <span class="rl-drive-ico">${isDrive ? ICO.drive : ICO.folder}</span>
+                    <span class="rl-drive-name">${esc(f.name)}</span>
+                    <span class="rl-drive-date">${esc(fmtDate(f.modifiedTime))}</span>
+                </button>`;
+            };
+            const fileRow = f => `<div class="rl-drive-row rl-drive-file"><span class="rl-drive-ico">${/\.smv$/i.test(f.name) ? ICO.flame : ICO.file}</span><span class="rl-drive-name">${esc(f.name)}</span><span class="rl-drive-date">${esc(formatBytes(Number(f.size)))}</span></div>`;
+            let html = folders.map(row).join('');
+            if (c && c.id && others.length) {
+                const shown = others.slice(0, 12);
+                html += `<div class="rl-drive-sep">Fichiers (${others.length})</div>` + shown.map(fileRow).join('') +
+                    (others.length > shown.length ? `<div class="rl-drive-msg">… et ${others.length - shown.length} autres</div>` : '');
+            }
+            if (!html) {
+                html = `<div class="rl-drive-msg">${c && c.search ? 'Aucun dossier ne correspond à cette recherche.'
+                    : DB.tab === 'drives' && !c ? 'Aucun Drive partagé accessible avec ce compte.'
+                    : 'Ce dossier est vide.'}</div>`;
+            }
+            list.innerHTML = html;
+        } catch (e) {
+            if (seq !== DB.seq) return;
+            list.innerHTML = `<div class="rl-drive-msg rl-drive-err">${esc(e.message)}</div>`;
+        }
+    }
+
+    /** Connexion Google puis explorateur Drive. */
     async function pickFromDrive() {
         try {
-            preloadGoogle();
             await signIn();
-            await auth.pickerReady;
-            const P = window.google.picker;
-            const folderView = () => new P.DocsView(P.ViewId.FOLDERS)
-                .setIncludeFolders(true)
-                .setSelectFolderEnabled(true)
-                .setMimeTypes(FOLDER_MIME);
-            const label = (v, txt) => (typeof v.setLabel === 'function' ? v.setLabel(txt) : v);
-            const mine = label(folderView().setOwnedByMe(true), 'Mon Drive');
-            const shared = label(folderView().setOwnedByMe(false), 'Partagés avec moi');
-            const drives = label(folderView().setEnableDrives(true), 'Drives partagés');
-            const builder = new P.PickerBuilder()
-                .setTitle('Choisissez le dossier de résultats FDS')
-                .setLocale('fr')
-                .setOAuthToken(auth.token)
-                .enableFeature(P.Feature.SUPPORT_DRIVES)
-                .addView(mine)
-                .addView(shared)
-                .addView(drives)
-                .setCallback(data => {
-                    if (data[P.Response.ACTION] !== P.Action.PICKED) return;
-                    const doc = (data[P.Response.DOCUMENTS] || [])[0];
-                    if (!doc) return;
-                    const id = doc[P.Document.ID];
-                    try { history.replaceState(null, '', shareLinkForDrive(id)); } catch (_) { /* file:// */ }
-                    openRemote({ kind: 'drive', id, key: CFG.driveApiKey || '' });
-                });
-            if (CFG.driveApiKey) builder.setDeveloperKey(CFG.driveApiKey);
-            if (CFG.googleAppId) builder.setAppId(CFG.googleAppId);
-            builder.setOrigin(window.location.protocol + '//' + window.location.host);
-            builder.build().setVisible(true);
         } catch (e) {
             console.error('[drive]', e);
             if (!/fermée/.test(e.message)) failOverlay(e);
+            return;
         }
+        if (!DB.el) DB.el = buildDriveBrowser();
+        DB.el.hidden = false;
+        renderDrive();
+        setTimeout(() => { const t = DB.el.querySelector('[aria-selected="true"]'); if (t) t.focus(); }, 0);
     }
 
     // ── Download progress (shared by every remote file) ──────────────────
