@@ -1,0 +1,285 @@
+/* ─── Habillage Sapeurs-Pompiers de la Gironde (charte graphique 2025) ───
+ *
+ * Chargé après style.css : redéfinit les variables de thème et la barre
+ * supérieure. Couleurs de la charte : rouge TSI Pantone 3546 C (#CE0019),
+ * bleu Pantone 280 C (#02216E), bleu nuit #131226, nuance lavande #AAAED8.
+ * Typographies : Bebas Neue (titres, logo) et Barlow Semi Condensed en
+ * remplacement libre de Myriad Pro Condensed (rédactionnel).
+ */
+
+/* Polices auto-hébergées (SIL Open Font License, via Fontsource) :
+   aucune requête vers un service tiers. */
+@font-face { font-family: 'Bebas Neue'; font-style: normal; font-weight: 400; font-display: swap;
+    src: url('../assets/fonts/bebas-neue-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Semi Condensed'; font-style: normal; font-weight: 400; font-display: swap;
+    src: url('../assets/fonts/barlow-semi-condensed-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Semi Condensed'; font-style: normal; font-weight: 500; font-display: swap;
+    src: url('../assets/fonts/barlow-semi-condensed-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Semi Condensed'; font-style: normal; font-weight: 600; font-display: swap;
+    src: url('../assets/fonts/barlow-semi-condensed-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Semi Condensed'; font-style: normal; font-weight: 700; font-display: swap;
+    src: url('../assets/fonts/barlow-semi-condensed-latin-700-normal.woff2') format('woff2'); }
+
+:root {
+    --sp-red: #CE0019;
+    --sp-red-dark: #A80014;
+    --sp-navy: #02216E;
+    --sp-navy-deep: #011650;
+    --sp-night: #131226;
+    --sp-lavender: #AAAED8;
+
+    --font-sans: 'Barlow Semi Condensed', 'Myriad Pro', 'Segoe UI', system-ui, sans-serif;
+    --font-display: 'Bebas Neue', 'Barlow Semi Condensed', 'Segoe UI', sans-serif;
+
+    /* Thème sombre : nuit bleue tirée du Pantone 280 C */
+    --bg-primary: #0a1230;
+    --bg-secondary: #0f1a40;
+    --bg-tertiary: #15224f;
+    --bg-card: #1a295c;
+    --bg-hover: #1f2f66;
+    --border: #27366c;
+    --text-primary: #eef0f8;
+    --text-secondary: #c3c8e2;
+    --text-muted: #9ba2c6;
+    --control-border: #5d6aa2;
+    --range-track: #5d6aa2;
+
+    --accent: #e3263c;
+    --accent-hover: #ff4a5d;
+    --accent-text: #ff7381;
+    --accent-fill: var(--sp-red);
+    --accent-fill-hover: var(--sp-red-dark);
+    --focus-ring: #ff7381;
+    --accent-tint: color-mix(in srgb, var(--sp-red) 22%, var(--bg-tertiary));
+
+    --hud-accent: #ff7381;
+    --rose: var(--sp-red);
+    --rose-rgb: 206, 0, 25;
+}
+
+[data-theme="light"] {
+    --bg-primary: #f1f3f9;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e8ebf5;
+    --bg-card: #f7f8fc;
+    --bg-hover: #dde2f0;
+    --border: #d3d8ea;
+    --text-primary: var(--sp-night);
+    --text-secondary: #2a3163;
+    --text-muted: #565d84;
+    --control-border: #7b83aa;
+    --range-track: #7b83aa;
+
+    --accent: var(--sp-red);
+    --accent-hover: var(--sp-red-dark);
+    --accent-text: #b10016;
+    --accent-fill: var(--sp-red);
+    --accent-fill-hover: var(--sp-red-dark);
+    --focus-ring: var(--sp-navy);
+    --accent-tint: color-mix(in srgb, var(--sp-red) 12%, #ffffff);
+}
+
+body { font-size: 15px; }
+
+/* ─── Barre supérieure : bleu SP, bande rouge TSI en pied ─────────────── */
+
+.top-bar {
+    background: var(--sp-navy);
+    border-bottom: 3px solid var(--sp-red);
+    padding-left: 0;
+    gap: 14px;
+    color: #fff;
+}
+
+.top-bar .logo {
+    align-self: stretch;
+    gap: 14px;
+    text-decoration: none;
+    color: #fff;
+}
+
+/* Le logo est posé sur une plaque blanche à pan coupé : il garde ses
+   couleurs d’origine (la charte interdit toute altération) quel que soit
+   le thème. */
+.brand-plaque {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 26px 0 14px;
+    background: #fff;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 16px) 100%, 0 100%);
+}
+
+.brand-plaque img {
+    display: block;
+    height: 32px;
+    width: auto;
+}
+
+.brand-app {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    padding-top: 3px;
+    color: #fff;
+}
+
+.top-bar #filename-display { color: rgba(255, 255, 255, 0.88); }
+.top-bar #model-title      { color: rgba(255, 255, 255, 0.62); }
+
+.top-bar .page-tabs { gap: 2px; align-self: stretch; }
+
+.top-bar .page-tab {
+    height: 100%;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.74);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.top-bar .page-tab:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: transparent;
+}
+
+.top-bar .page-tab.active {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 -3px 0 #fff;
+}
+
+.top-bar .page-tab:focus-visible,
+.top-bar .btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: -2px;
+}
+
+.top-bar .btn-secondary {
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.38);
+}
+
+.top-bar .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+.top-bar .btn-primary {
+    background: var(--sp-red);
+    border-color: var(--sp-red);
+}
+
+/* ─── Titres de sections : Bebas Neue + trait rouge de la charte ──────── */
+
+.sidebar-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 400;
+    letter-spacing: 0.05em;
+    text-transform: none;
+    color: var(--text-secondary);
+}
+
+.sidebar-section h3::before {
+    content: '';
+    flex: 0 0 14px;
+    height: 3px;
+    background: var(--sp-red);
+}
+
+[data-theme="light"] .sidebar-section h3 { color: var(--sp-navy); }
+
+.fp-card-title,
+.help-article h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: 0.04em;
+}
+
+.fp-card-title { font-size: 21px; }
+
+[data-theme="light"] .fp-card-title,
+[data-theme="light"] .help-article h2,
+[data-theme="light"] .help-article h3 { color: var(--sp-navy); }
+
+.help-banner h2 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 34px;
+    letter-spacing: 0.03em;
+}
+
+/* ─── Écran d’accueil ─────────────────────────────────────────────────── */
+
+.drop-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 14px;
+}
+
+.drop-brand-logo {
+    padding: 18px 26px;
+    background: #fff;
+    border-radius: 10px;
+}
+
+.drop-brand-logo img {
+    display: block;
+    width: min(320px, 70vw);
+    height: auto;
+}
+
+.drop-content h2.drop-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 52px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    line-height: 1;
+}
+
+.drop-title::after {
+    content: '';
+    display: block;
+    width: 64px;
+    height: 4px;
+    margin: 12px auto 0;
+    background: var(--sp-red);
+}
+
+[data-theme="light"] .drop-content h2.drop-title { color: var(--sp-navy); }
+
+.drop-content p { font-size: 19px; }
+
+#drop-zone:hover,
+#drop-zone.drag-over {
+    background: rgba(var(--rose-rgb), 0.06);
+}
+
+/* ─── Pied de page ────────────────────────────────────────────────────── */
+
+.footer-credit strong { color: var(--text-secondary); font-weight: 600; }
+
+/* ─── Petits écrans ───────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+    .brand-app { display: none; }
+}
+
+@media (max-width: 640px) {
+    .brand-plaque { padding: 0 20px 0 10px; }
+    .brand-plaque img { height: 24px; }
+}

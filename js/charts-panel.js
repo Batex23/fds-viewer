@@ -386,7 +386,7 @@
         if (allSeries.length === 0) {
             ctx.fillStyle = fg; ctx.font = `13px ${FONT}`;
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText('Select channels in the sidebar', W / 2, H / 2);
+            ctx.fillText('Sélectionnez des courbes dans la liste de gauche', W / 2, H / 2);
             return;
         }
 
@@ -483,11 +483,11 @@
 
         // X axis label
         ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-        ctx.fillText(ds.opt.xLabel || 'Time (s)', L.ML + L.W / 2, H - 6);
+        ctx.fillText(ds.opt.xLabel || 'Temps (s)', L.ML + L.W / 2, H - 6);
 
         // Left Y axis label
         const uSetL = [...new Set(leftS.map(s => s.unit).filter(Boolean))];
-        const yLblL = ds.opt.yLabel || (uSetL.length === 1 ? uSetL[0] : uSetL.length === 0 ? 'Value' : 'Value (mixed)');
+        const yLblL = ds.opt.yLabel || (uSetL.length === 1 ? uSetL[0] : uSetL.length === 0 ? 'Valeur' : 'Valeur (unités mixtes)');
         ctx.save();
         ctx.translate(13, L.MT + L.H / 2);
         ctx.rotate(-Math.PI / 2);
@@ -498,7 +498,7 @@
         // Right Y axis label
         if (hasRight) {
             const uSetR = [...new Set(rightS.map(s => s.unit).filter(Boolean))];
-            const yLblR = ds.opt.yLabel2 || (uSetR.length === 1 ? uSetR[0] : uSetR.length === 0 ? 'Value' : 'Value (mixed)');
+            const yLblR = ds.opt.yLabel2 || (uSetR.length === 1 ? uSetR[0] : uSetR.length === 0 ? 'Valeur' : 'Valeur (unités mixtes)');
             ctx.save();
             ctx.translate(W - 13, L.MT + L.H / 2);
             ctx.rotate(Math.PI / 2);
@@ -574,7 +574,7 @@
             ctx.font = `9px ${FONT}`;
             ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
             ctx.fillStyle = wmC;
-            ctx.fillText('FDS Viewer', L.ML + L.W - 4, L.MT + L.H - 4);
+            ctx.fillText('Visionneuse FDS · SP33', L.ML + L.W - 4, L.MT + L.H - 4);
             ctx.restore();
         }
     }
@@ -607,8 +607,8 @@
                   '<div class="chart-tooltip" style="display:none;"></div>' +
               '</div>' +
               '<div class="chart-no-time-msg">' +
-                  'No &ldquo;Time&rdquo; column found &mdash; this file doesn&rsquo;t ' +
-                  'contain a time series and can&rsquo;t be plotted here.' +
+                  'Aucune colonne &laquo;&nbsp;Time&nbsp;&raquo; trouvée &mdash; ce fichier ne contient pas ' +
+                  'de série temporelle et ne peut pas être tracé ici.' +
               '</div>';
 
         const card = document.createElement('div');
@@ -618,7 +618,7 @@
             '<div class="chart-card-header">' +
                 '<div class="chart-card-title-area">' +
                     '<span class="chart-card-filename" title="' + esc(ds.filename) + '">' + esc(ds.filename) + '</span>' +
-                    '<input type="text" class="chart-title-input" placeholder="Chart title…" value="">' +
+                    '<input type="text" class="chart-title-input" placeholder="Titre du graphique…" value="">' +
                 '</div>' +
                 '<div class="chart-card-actions">' +
                     '<button class="fp-copy-btn chart-opts-toggle" title="Options">&#x2699;</button>' +
@@ -630,36 +630,36 @@
             '<div class="chart-card-opts" style="display:none;">' +
                 '<div class="chart-opts-inner">' +
                     '<div class="chart-opt-group">' +
-                        '<span class="chart-opts-label">Decimal</span>' +
-                        '<label><input type="radio" name="' + radName + '" class="opt-decimal" value="."> . Period</label>' +
-                        '<label><input type="radio" name="' + radName + '" class="opt-decimal" value=","> , Comma</label>' +
+                        '<span class="chart-opts-label">Décimales</span>' +
+                        '<label><input type="radio" name="' + radName + '" class="opt-decimal" value="."> . Point</label>' +
+                        '<label><input type="radio" name="' + radName + '" class="opt-decimal" value=","> , Virgule</label>' +
                     '</div>' +
                     '<div class="chart-opt-group">' +
-                        '<label><input type="checkbox" class="opt-grid" checked> Grid</label>' +
+                        '<label><input type="checkbox" class="opt-grid" checked> Grille</label>' +
                         '<select class="opt-grid-style">' +
-                            '<option value="dashed">Dashed</option>' +
-                            '<option value="solid">Solid</option>' +
+                            '<option value="dashed">Tirets</option>' +
+                            '<option value="solid">Continue</option>' +
                         '</select>' +
                     '</div>' +
                     '<div class="chart-opt-group">' +
-                        '<span class="chart-opts-label">X label</span>' +
-                        '<input type="text" class="opt-xlabel opt-text-input" placeholder="Time (s)">' +
+                        '<span class="chart-opts-label">Libellé X</span>' +
+                        '<input type="text" class="opt-xlabel opt-text-input" placeholder="Temps (s)">' +
                     '</div>' +
                     '<div class="chart-opt-group">' +
-                        '<span class="chart-opts-label">Y label</span>' +
+                        '<span class="chart-opts-label">Libellé Y</span>' +
                         '<input type="text" class="opt-ylabel opt-text-input" placeholder="auto">' +
                     '</div>' +
                     '<div class="chart-opt-group">' +
-                        '<span class="chart-opts-label">Y₂ label</span>' +
+                        '<span class="chart-opts-label">Libellé Y₂</span>' +
                         '<input type="text" class="opt-ylabel2 opt-text-input" placeholder="auto">' +
                     '</div>' +
                     '<div class="chart-opt-group">' +
-                        '<label><input type="checkbox" class="opt-watermark" checked> Watermark</label>' +
+                        '<label><input type="checkbox" class="opt-watermark" checked> Filigrane</label>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
             '<div class="chart-mixed-warn" style="display:none;">' +
-                '&#9888; Right Y-axis shows mixed units &mdash; channels share one scale' +
+                '&#9888; L’axe Y de droite mélange plusieurs unités &mdash; les courbes partagent une même échelle' +
             '</div>' +
             canvasAreaHtml;
 
@@ -724,7 +724,7 @@
                 if (!reparse(ds)) {
                     ds.opt.decimalSep = prev;
                     card.querySelectorAll('.opt-decimal').forEach(o => { o.checked = o.value === prev; });
-                    alert('Could not re-read ' + ds.filename + ' with that decimal separator.');
+                    alert('Impossible de relire ' + ds.filename + ' avec ce séparateur décimal.');
                     return;
                 }
                 rebuildChannelList();
@@ -836,7 +836,7 @@
 
         if (allSeries.length === 0) {
             return o + `<text x="${svgW/2}" y="${svgH/2}" text-anchor="middle" dominant-baseline="middle"` +
-                ` font-family="${ff}" font-size="13" fill="${fg}">No channels selected</text></svg>`;
+                ` font-family="${ff}" font-size="13" fill="${fg}">Aucune courbe sélectionnée</text></svg>`;
         }
 
         if (hasTitle) {
@@ -909,18 +909,18 @@
 
         // X label
         o += `<text x="${(L.ML+L.W/2).toFixed(1)}" y="${svgH-6}" text-anchor="middle"` +
-            ` font-family="${ff}" font-size="13" font-weight="bold" fill="${fg}">${esc(ds.opt.xLabel || 'Time (s)')}</text>`;
+            ` font-family="${ff}" font-size="13" font-weight="bold" fill="${fg}">${esc(ds.opt.xLabel || 'Temps (s)')}</text>`;
 
         // Left Y label
         const uSetL = [...new Set(leftS.map(s => s.unit).filter(Boolean))];
-        const yLblL = ds.opt.yLabel || (uSetL.length === 1 ? uSetL[0] : uSetL.length === 0 ? 'Value' : 'Value (mixed)');
+        const yLblL = ds.opt.yLabel || (uSetL.length === 1 ? uSetL[0] : uSetL.length === 0 ? 'Valeur' : 'Valeur (unités mixtes)');
         o += `<text transform="translate(13,${(L.MT+L.H/2).toFixed(1)}) rotate(-90)" text-anchor="middle"` +
             ` font-family="${ff}" font-size="13" font-weight="bold" fill="${fg}">${esc(yLblL)}</text>`;
 
         // Right Y label
         if (hasRight) {
             const uSetR = [...new Set(rightS.map(s => s.unit).filter(Boolean))];
-            const yLblR = ds.opt.yLabel2 || (uSetR.length === 1 ? uSetR[0] : uSetR.length === 0 ? 'Value' : 'Value (mixed)');
+            const yLblR = ds.opt.yLabel2 || (uSetR.length === 1 ? uSetR[0] : uSetR.length === 0 ? 'Valeur' : 'Valeur (unités mixtes)');
             o += `<text transform="translate(${svgW-13},${(L.MT+L.H/2).toFixed(1)}) rotate(90)" text-anchor="middle"` +
                 ` font-family="${ff}" font-size="13" font-weight="bold" fill="${fg}">${esc(yLblR)}</text>`;
         }
@@ -983,7 +983,7 @@
         if (ds.opt.watermark) {
             o += `<text x="${(L.ML+L.W-4).toFixed(1)}" y="${(L.MT+L.H-4).toFixed(1)}"` +
                 ` text-anchor="end" dominant-baseline="auto"` +
-                ` font-family="${ff}" font-size="9" fill="rgba(0,0,0,0.18)">FDS Viewer</text>`;
+                ` font-family="${ff}" font-size="9" fill="rgba(0,0,0,0.18)">Visionneuse FDS · SP33</text>`;
         }
 
         return o + '</svg>';
@@ -1010,7 +1010,7 @@
     function exportPDF(ds) {
         const svg = buildSVG(ds, 1122, 794);
         const win = window.open('', '_blank');
-        if (!win) { alert('Please allow pop-ups to export PDF.'); return; }
+        if (!win) { alert('Autorisez les fenêtres pop-up pour exporter en PDF.'); return; }
         win.document.write('<!DOCTYPE html><html><head><style>' +
             '@page{size:A4 landscape;margin:8mm}body{margin:0}svg{width:100%;height:auto;display:block}' +
             '</style></head><body>' + svg + '</body></html>');
@@ -1093,7 +1093,7 @@
         const box = document.getElementById('charts-channel-list');
         if (!box) return;
         if (datasets.length === 0) {
-            box.innerHTML = '<p class="charts-empty-msg">Open a CSV file to see channels.</p>';
+            box.innerHTML = '<p class="charts-empty-msg">Ouvrez un fichier CSV pour voir ses courbes.</p>';
             return;
         }
         let html = '';
@@ -1101,15 +1101,15 @@
             html += '<div class="charts-ds-group">' +
                 '<div class="charts-ds-header">' +
                     '<span class="charts-ds-name" title="' + esc(ds.filename) + '">' + esc(ds.filename) + '</span>' +
-                    '<button class="charts-ds-remove" data-id="' + esc(ds.id) + '" title="Remove">&#x2715;</button>' +
+                    '<button class="charts-ds-remove" data-id="' + esc(ds.id) + '" title="Retirer">&#x2715;</button>' +
                 '</div>';
             if (!ds.hasTime) {
-                html += '<p class="charts-ds-note">No Time column &mdash; nothing to plot.</p></div>';
+                html += '<p class="charts-ds-note">Pas de colonne Time &mdash; rien à tracer.</p></div>';
                 continue;
             }
             html += '<div class="charts-ds-bulk">' +
-                    '<button class="charts-bulk-btn" data-id="' + esc(ds.id) + '" data-action="all">All</button>' +
-                    '<button class="charts-bulk-btn" data-id="' + esc(ds.id) + '" data-action="none">None</button>' +
+                    '<button class="charts-bulk-btn" data-id="' + esc(ds.id) + '" data-action="all">Tout</button>' +
+                    '<button class="charts-bulk-btn" data-id="' + esc(ds.id) + '" data-action="none">Aucun</button>' +
                 '</div>';
             for (let i = 1; i < ds.headers.length; i++) {
                 const key   = ds.id + '::' + i;
@@ -1128,9 +1128,9 @@
                 ).join('');
                 html += '<div class="charts-ch-item">' +
                     '<input type="checkbox" class="charts-ch-check" data-key="' + esc(key) + '" ' + (selectedKeys.has(key) ? 'checked' : '') + '>' +
-                    '<span class="charts-ch-swatch" data-key="' + esc(key) + '" style="background:' + esc(colorMap[key] || '#888') + '" title="Click to change colour"></span>' +
+                    '<span class="charts-ch-swatch" data-key="' + esc(key) + '" style="background:' + esc(colorMap[key] || '#888') + '" title="Cliquer pour changer la couleur"></span>' +
                     '<select class="charts-ch-style" data-key="' + esc(key) + '">' + selOpts + '</select>' +
-                    '<select class="charts-ch-width" data-key="' + esc(key) + '" title="Line width">' + widthOpts + '</select>' +
+                    '<select class="charts-ch-width" data-key="' + esc(key) + '" title="Épaisseur du trait">' + widthOpts + '</select>' +
                     '<span class="charts-ch-label">' + esc(ds.headers[i]) + '</span>' +
                     (ds.units[i] ? '<span class="charts-ch-unit">' + esc(ds.units[i]) + '</span>' : '') +
                     '</div>';
@@ -1169,7 +1169,7 @@
                     if (listEl && !listEl.querySelector('.charts-empty-cards-msg')) {
                         const p = document.createElement('p');
                         p.className = 'charts-empty-cards-msg';
-                        p.textContent = 'Open a CSV file to plot data.';
+                        p.textContent = 'Ouvrez un fichier CSV pour tracer les données.';
                         listEl.appendChild(p);
                     }
                 }
@@ -1232,7 +1232,7 @@
                 const opts = defaultOpt();
                 const ds   = parseCSV(e.target.result, f.name, opts);
                 if (ds) { addDataset(ds); rebuildChannelList(); }
-                else alert(`Could not read ${f.name}: expected an FDS CSV with a header row, comma- or semicolon-separated.`);
+                else alert(`Impossible de lire ${f.name} : un CSV FDS avec ligne d’en-tête est attendu (séparateur virgule ou point-virgule).`);
             };
             reader.readAsText(f);
         }

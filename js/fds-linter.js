@@ -67,8 +67,8 @@ const _KNOWN_DEVC_Q = new Set([
 
 const _REJECTED_DEVC_Q = {
     'HEAT RELEASE RATE': "Use QUANTITY='HRR' with XB for an integrated volume; total HRR is written to <chid>_hrr.csv automatically.",
-    'SOOT MASS FRACTION':   "Not available with implicit soot (SOOT_YIELD in &REAC). Use QUANTITY='VISIBILITY'.",
-    'SOOT VOLUME FRACTION': "Not available with implicit soot (SOOT_YIELD in &REAC). Use QUANTITY='VISIBILITY'.",
+    'SOOT MASS FRACTION':   "Indisponible avec la suie implicite (SOOT_YIELD dans &REAC). Utilisez QUANTITY='VISIBILITY'.",
+    'SOOT VOLUME FRACTION': "Indisponible avec la suie implicite (SOOT_YIELD dans &REAC). Utilisez QUANTITY='VISIBILITY'.",
 };
 
 // Table 22.4 quantities with File Type that includes S (slice)
@@ -110,21 +110,21 @@ const _KNOWN_SLCF_Q = new Set([
 
 const _REJECTED_SLCF_Q = {
     // Table 22.6 — D only (not S)
-    'FED':                  "FED (Fractional Effective Dose) is a device-only quantity (FDS User Guide Table 22.6, File Type D). Use &DEVC QUANTITY='FED' at a point. FIC is the slice-capable equivalent (File Type D,S).",
+    'FED':                  "FED (Fractional Effective Dose) n’existe qu’en capteur (FDS User Guide Table 22.6, File Type D). Utilisez &DEVC QUANTITY='FED' en un point. FIC est l’équivalent disponible en slice (File Type D,S).",
     // Table 22.4 — D only (not S)
-    'RADIATIVE HEAT FLUX GAS': "RADIATIVE HEAT FLUX GAS has File Type D only (Table 22.4) — not valid for &SLCF. Use &DEVC instead.",
+    'RADIATIVE HEAT FLUX GAS': "RADIATIVE HEAT FLUX GAS est en File Type D uniquement (Table 22.4) — non valide pour &SLCF. Utilisez &DEVC.",
     // Table 22.5 — solid phase (B,D only, not S)
-    'WALL TEMPERATURE':     "WALL TEMPERATURE is a solid-phase quantity (Table 22.5, File Type B,D) — not valid for &SLCF. Use &BNDF QUANTITY='WALL TEMPERATURE' / for full surface output.",
-    'BURNING RATE':         "BURNING RATE is a solid-phase quantity (Table 22.5, File Type B,D) — not valid for &SLCF. Use &BNDF QUANTITY='BURNING RATE' / for surface output.",
-    'HRRPUA':               "HRRPUA is a solid-phase quantity (Table 22.5, File Type B,D) — not valid for &SLCF. Use &BNDF QUANTITY='HRRPUA' / for surface output.",
-    'GAUGE HEAT FLUX':      "GAUGE HEAT FLUX is a solid-phase quantity (Table 22.5, File Type B,D) — not valid for &SLCF. Use &BNDF QUANTITY='GAUGE HEAT FLUX' /.",
-    'INCIDENT HEAT FLUX':   "INCIDENT HEAT FLUX is a solid-phase quantity (Table 22.5, File Type B,D) — not valid for &SLCF. Use &BNDF instead.",
-    'CONVECTIVE HEAT FLUX': "CONVECTIVE HEAT FLUX is a solid-phase quantity (Table 22.5, File Type B,D) — not valid for &SLCF. Use &BNDF instead.",
-    'ADIABATIC SURFACE TEMPERATURE': "ADIABATIC SURFACE TEMPERATURE is a solid-phase quantity (Table 22.5, File Type B,D) — not valid for &SLCF. Use &BNDF or &DEVC with IOR.",
+    'WALL TEMPERATURE':     "WALL TEMPERATURE est une grandeur de phase solide (Table 22.5, File Type B,D) — non valide pour &SLCF. Utilisez &BNDF QUANTITY='WALL TEMPERATURE' / pour une sortie sur toutes les surfaces.",
+    'BURNING RATE':         "BURNING RATE est une grandeur de phase solide (Table 22.5, File Type B,D) — non valide pour &SLCF. Utilisez &BNDF QUANTITY='BURNING RATE' / pour une sortie en surface.",
+    'HRRPUA':               "HRRPUA est une grandeur de phase solide (Table 22.5, File Type B,D) — non valide pour &SLCF. Utilisez &BNDF QUANTITY='HRRPUA' / pour une sortie en surface.",
+    'GAUGE HEAT FLUX':      "GAUGE HEAT FLUX est une grandeur de phase solide (Table 22.5, File Type B,D) — non valide pour &SLCF. Utilisez &BNDF QUANTITY='GAUGE HEAT FLUX' /.",
+    'INCIDENT HEAT FLUX':   "INCIDENT HEAT FLUX est une grandeur de phase solide (Table 22.5, File Type B,D) — non valide pour &SLCF. Utilisez &BNDF.",
+    'CONVECTIVE HEAT FLUX': "CONVECTIVE HEAT FLUX est une grandeur de phase solide (Table 22.5, File Type B,D) — non valide pour &SLCF. Utilisez &BNDF.",
+    'ADIABATIC SURFACE TEMPERATURE': "ADIABATIC SURFACE TEMPERATURE est une grandeur de phase solide (Table 22.5, File Type B,D) — non valide pour &SLCF. Utilisez &BNDF ou &DEVC avec IOR.",
     // Implicit-soot crashes
-    'SOOT MASS FRACTION':   "Not available with implicit soot (SOOT_YIELD in &REAC). Use QUANTITY='VISIBILITY'.",
-    'SOOT VOLUME FRACTION': "Not available with implicit soot (SOOT_YIELD in &REAC). Use QUANTITY='VISIBILITY'.",
-    'HEAT RELEASE RATE':    "Not a valid SLCF quantity. Use QUANTITY='HRRPUV' for volumetric HRR rate slices.",
+    'SOOT MASS FRACTION':   "Indisponible avec la suie implicite (SOOT_YIELD dans &REAC). Utilisez QUANTITY='VISIBILITY'.",
+    'SOOT VOLUME FRACTION': "Indisponible avec la suie implicite (SOOT_YIELD dans &REAC). Utilisez QUANTITY='VISIBILITY'.",
+    'HEAT RELEASE RATE':    "Grandeur SLCF non valide. Utilisez QUANTITY='HRRPUV' pour des slices de puissance volumique.",
 };
 
 const _SPEC_ID_Q = new Set(['VOLUME FRACTION','MASS FRACTION','MOLE FRACTION']);
@@ -342,8 +342,8 @@ _rule('unterminated-record', (R, F) => {
         if (r._unterminated)
             F.push({
                 severity: 'ERROR',
-                message: `&${r.name} at line ${r.line} is missing its closing / — record is not terminated.`,
-                hint: `Every FDS namelist record must end with /. Add / at the end of the &${r.name} block. Without it FDS raises ERROR(101) and subsequent records may be misread.`,
+                message: `&${r.name} ligne ${r.line} : la barre / de fin est absente — l’enregistrement n’est pas terminé.`,
+                hint: `Chaque namelist FDS doit se terminer par /. Ajoutez / à la fin du bloc &${r.name}. Sinon FDS lève ERROR(101) et les enregistrements suivants peuvent être mal lus.`,
                 line: r.line,
                 lineEnd: r.lineEnd,
                 rule: 'unterminated-record',
@@ -356,34 +356,34 @@ _rule('unterminated-record', (R, F) => {
 _rule('head-chid-required', (R, F) => {
     const heads = R.filter(r => r.name === 'HEAD');
     if (!heads.length) {
-        return F.push({ severity:'ERROR', message:"&HEAD namelist is missing — CHID is required for FDS to produce output files.", hint:"Add &HEAD CHID='my_sim', TITLE='Description' /", line:1, rule:'head-chid-required' });
+        return F.push({ severity:'ERROR', message:"Namelist &HEAD absente — CHID est indispensable pour que FDS produise ses fichiers de sortie.", hint:"Ajoutez &HEAD CHID='ma_simu', TITLE='Description' /", line:1, rule:'head-chid-required' });
     }
     const chid = heads[0].params.CHID || '';
     if (!chid)
-        F.push({ severity:'ERROR', message:"&HEAD has no CHID — required.", hint:"Add CHID='<sim_name>' to the &HEAD line.", line:heads[0].line, rule:'head-chid-required' });
+        F.push({ severity:'ERROR', message:"&HEAD sans CHID — obligatoire.", hint:"Ajoutez CHID='<nom_simu>' à la ligne &HEAD.", line:heads[0].line, rule:'head-chid-required' });
     else if (/[ .\\/:\*?"<>|]/.test(String(chid)))
-        F.push({ severity:'WARNING', message:`CHID '${chid}' contains a space or period — forbidden by FDS.`, hint:"No spaces or periods allowed in CHID (FDS User Guide §6.1). Use letters, digits, hyphens, and underscores only.", line:heads[0].line, rule:'head-chid-required' });
+        F.push({ severity:'WARNING', message:`Le CHID '${chid}' contient une espace ou un point — interdit par FDS.`, hint:"Pas d’espace ni de point dans le CHID (FDS User Guide §6.1). Utilisez uniquement lettres, chiffres, tirets et tirets bas.", line:heads[0].line, rule:'head-chid-required' });
 });
 
 _rule('time-tend-required', (R, F) => {
     const times = R.filter(r => r.name === 'TIME');
     if (!times.length) {
-        return F.push({ severity:'WARNING', message:"&TIME namelist missing; FDS will use default T_END=1.0 s.", hint:"Add &TIME T_END=<seconds> /", line:1, rule:'time-tend-required' });
+        return F.push({ severity:'WARNING', message:"Namelist &TIME absente ; FDS utilisera T_END=1.0 s par défaut.", hint:"Ajoutez &TIME T_END=<secondes> /", line:1, rule:'time-tend-required' });
     }
     if (times[0].params.T_END == null)
-        F.push({ severity:'WARNING', message:"&TIME has no T_END; FDS will use 1.0 s by default.", hint:"Add T_END=<seconds> to the &TIME line.", line:times[0].line, rule:'time-tend-required' });
+        F.push({ severity:'WARNING', message:"&TIME sans T_END ; FDS utilisera 1.0 s par défaut.", hint:"Ajoutez T_END=<secondes> à la ligne &TIME.", line:times[0].line, rule:'time-tend-required' });
 });
 
 _rule('tail-missing', (R, F) => {
     if (!R.some(r => r.name === 'TAIL'))
-        F.push({ severity:'INFO', message:"No &TAIL / found at end of file.", hint:"Add &TAIL / as the last line. FDS ignores anything after &TAIL, making it a clean end marker.", line:0, rule:'tail-missing' });
+        F.push({ severity:'INFO', message:"Pas de &TAIL / en fin de fichier.", hint:"Ajoutez &TAIL / en dernière ligne. FDS ignore tout ce qui suit &TAIL : c’est un marqueur de fin propre.", line:0, rule:'tail-missing' });
 });
 
 // ── Mesh ──────────────────────────────────────────────────────────────────────
 
 _rule('mesh-required', (R, F) => {
     if (!R.some(r => r.name === 'MESH'))
-        F.push({ severity:'ERROR', message:"No &MESH defined — FDS needs at least one mesh.", hint:"Add &MESH IJK=I,J,K, XB=x0,x1,y0,y1,z0,z1 /. FDS raises ERROR(113).", line:1, rule:'mesh-required' });
+        F.push({ severity:'ERROR', message:"Aucun &MESH défini — FDS a besoin d’au moins un maillage.", hint:"Ajoutez &MESH IJK=I,J,K, XB=x0,x1,y0,y1,z0,z1 /. FDS lève ERROR(113).", line:1, rule:'mesh-required' });
 });
 
 _rule('mesh-ijk-min', (R, F) => {
@@ -391,7 +391,7 @@ _rule('mesh-ijk-min', (R, F) => {
         const ijk = m.params.IJK;
         if (!Array.isArray(ijk) || ijk.length < 3) continue;
         if (ijk.some(n => n < 2))
-            F.push({ severity:'ERROR', message:`&MESH at line ${m.line} has IJK dimension < 2 (${ijk.join(',')}).`, hint:"All IJK values must be ≥ 2; use ≥ 4 per direction for a proper 3D mesh. FDS raises ERROR(426) for degenerate meshes.", line:m.line, rule:'mesh-ijk-min' });
+            F.push({ severity:'ERROR', message:`&MESH ligne ${m.line} : une dimension IJK est < 2 (${ijk.join(',')}).`, hint:"Toutes les valeurs IJK doivent être ≥ 2 ; visez ≥ 4 par direction pour un vrai maillage 3D. FDS lève ERROR(426) pour un maillage dégénéré.", line:m.line, rule:'mesh-ijk-min' });
     }
 });
 
@@ -400,7 +400,7 @@ _rule('mesh-xb-degenerate', (R, F) => {
         const xb = m.params.XB;
         if (!Array.isArray(xb) || xb.length !== 6) continue;
         if (xb[0] === xb[1] || xb[2] === xb[3] || xb[4] === xb[5])
-            F.push({ severity:'ERROR', message:`&MESH at line ${m.line} has zero-length XB in at least one direction (${xb.join(',')}).`, hint:"FDS raises ERROR(119) when any axis of a mesh has equal bounds.", line:m.line, rule:'mesh-xb-degenerate' });
+            F.push({ severity:'ERROR', message:`&MESH ligne ${m.line} : XB de longueur nulle dans au moins une direction (${xb.join(',')}).`, hint:"FDS lève ERROR(119) quand un axe du maillage a des bornes égales.", line:m.line, rule:'mesh-xb-degenerate' });
     }
 });
 
@@ -411,7 +411,7 @@ _rule('mesh-balance', (R, F) => {
         .map(m => Array.isArray(m.params.IJK) && m.params.IJK.length === 3 ? Math.round(m.params.IJK.reduce((a,b)=>a*b,1)) : null)
         .filter(n => n !== null);
     if (cells.length > 1 && Math.max(...cells) > 4 * Math.min(...cells))
-        F.push({ severity:'INFO', message:`Mesh cell counts are imbalanced (max ${Math.max(...cells).toLocaleString()} vs min ${Math.min(...cells).toLocaleString()}).`, hint:"With one MPI rank per mesh the slowest mesh sets wall time. Aim for counts within 2× of each other.", line:meshes[0].line, rule:'mesh-balance' });
+        F.push({ severity:'INFO', message:`Nombre de cellules déséquilibré entre maillages (max ${Math.max(...cells).toLocaleString()} contre min ${Math.min(...cells).toLocaleString()}).`, hint:"Avec un rang MPI par maillage, le maillage le plus lent fixe la durée du calcul. Visez des effectifs à moins d’un facteur 2.", line:meshes[0].line, rule:'mesh-balance' });
 });
 
 // ── XB ordering (all namelists) ───────────────────────────────────────────────
@@ -420,7 +420,7 @@ _rule('xb-ordered', (R, F) => {
     for (const r of R) {
         const xb = r.params.XB;
         if (Array.isArray(xb) && xb.length === 6 && (xb[0] > xb[1] || xb[2] > xb[3] || xb[4] > xb[5]))
-            F.push({ severity:'ERROR', message:`&${r.name} XB has reversed bounds: (${xb.join(',')}).`, hint:"XB order must be: x_min, x_max, y_min, y_max, z_min, z_max.", line:r.line, rule:'xb-ordered' });
+            F.push({ severity:'ERROR', message:`&${r.name} : bornes XB inversées (${xb.join(',')}).`, hint:"Ordre attendu pour XB : x_min, x_max, y_min, y_max, z_min, z_max.", line:r.line, rule:'xb-ordered' });
     }
 });
 
@@ -429,7 +429,7 @@ _rule('xb-ordered', (R, F) => {
 _rule('reac-missing-fuel', (R, F) => {
     for (const r of R.filter(r => r.name === 'REAC')) {
         if (!r.params.FUEL)
-            F.push({ severity:'ERROR', message:`&REAC at line ${r.line} has no FUEL defined.`, hint:"Add FUEL='<name>' (e.g. FUEL='PROPANE') and optionally C=3, H=8. FDS raises ERROR(190).", line:r.line, rule:'reac-missing-fuel' });
+            F.push({ severity:'ERROR', message:`&REAC ligne ${r.line} : aucun FUEL défini.`, hint:"Ajoutez FUEL='<nom>' (ex. FUEL='PROPANE') et éventuellement C=3, H=8. FDS lève ERROR(190).", line:r.line, rule:'reac-missing-fuel' });
     }
 });
 
@@ -437,7 +437,7 @@ _rule('surf-hrrpua-needs-reac', (R, F) => {
     const hasReac = R.some(r => r.name === 'REAC');
     for (const s of R.filter(r => r.name === 'SURF')) {
         if ((s.params.HRRPUA != null || s.params.MLRPUA != null) && !hasReac)
-            F.push({ severity:'WARNING', message:`&SURF '${s.params.ID || '?'}' uses HRRPUA/MLRPUA but no &REAC is defined.`, hint:"Add &REAC FUEL='...', HEAT_OF_COMBUSTION=... / so FDS can compute combustion products. FDS raises ERROR(314).", line:s.line, rule:'surf-hrrpua-needs-reac' });
+            F.push({ severity:'WARNING', message:`&SURF '${s.params.ID || '?'}' utilise HRRPUA/MLRPUA mais aucun &REAC n’est défini.`, hint:"Ajoutez &REAC FUEL='...', HEAT_OF_COMBUSTION=... / pour que FDS calcule les produits de combustion. FDS lève ERROR(314).", line:s.line, rule:'surf-hrrpua-needs-reac' });
     }
 });
 
@@ -447,7 +447,7 @@ _rule('surf-missing-id', (R, F) => {
     for (const s of R.filter(r => r.name === 'SURF')) {
         const id = s.params.ID;
         if (!id || (typeof id === 'string' && !id.trim()))
-            F.push({ severity:'ERROR', message:`&SURF at line ${s.line} has no ID — required.`, hint:"Add ID='<name>' so it can be referenced by VENT/OBST. FDS raises ERROR(301).", line:s.line, rule:'surf-missing-id' });
+            F.push({ severity:'ERROR', message:`&SURF ligne ${s.line} : pas d’ID — obligatoire.`, hint:"Ajoutez ID='<nom>' pour pouvoir la référencer depuis VENT/OBST. FDS lève ERROR(301).", line:s.line, rule:'surf-missing-id' });
     }
 });
 
@@ -459,7 +459,7 @@ _rule('duplicate-ids', (R, F) => {
             if (!id) continue;
             if (id in seen && !dupes.has(id)) {
                 dupes.add(id);
-                F.push({ severity:'ERROR', message:`&${type} ID '${id}' is defined more than once (first at line ${seen[id]}, again at line ${r.line}).`, hint:`Rename one instance. FDS raises an error for duplicate ${type} IDs (e.g. ERROR(302) for SURF).`, line:r.line, rule:'duplicate-ids' });
+                F.push({ severity:'ERROR', message:`&${type} : l’ID '${id}' est défini plusieurs fois (d’abord ligne ${seen[id]}, puis ligne ${r.line}).`, hint:`Renommez l’une des occurrences. FDS refuse les ID ${type} en double (ex. ERROR(302) pour SURF).`, line:r.line, rule:'duplicate-ids' });
             }
             seen[id] = r.line;
         }
@@ -474,7 +474,7 @@ _rule('burn-away-surf-id6', (R, F) => {
     for (const o of R.filter(r => r.name === 'OBST')) {
         for (const s of _asList(o.params.SURF_ID6)) {
             if (s && burnSurfs.has(String(s)))
-                F.push({ severity:'ERROR', message:`&OBST at line ${o.line} uses SURF '${s}' (BURN_AWAY=.TRUE.) via SURF_ID6 — rejected by FDS.`, hint:`Remove BURN_AWAY from SURF '${s}' or move the combustible material to its own OBST.`, line:o.line, rule:'burn-away-surf-id6' });
+                F.push({ severity:'ERROR', message:`&OBST ligne ${o.line} : utilise la SURF '${s}' (BURN_AWAY=.TRUE.) via SURF_ID6 — refusé par FDS.`, hint:`Retirez BURN_AWAY de la SURF '${s}' ou placez le matériau combustible dans sa propre OBST.`, line:o.line, rule:'burn-away-surf-id6' });
         }
     }
 });
@@ -485,14 +485,14 @@ _rule('burn-away-bulk-density', (R, F) => {
     for (const s of R.filter(r => r.name === 'SURF')) {
         if (s.params.BURN_AWAY !== true || s.params.BULK_DENSITY != null) continue;
         if (_asList(s.params.MATL_ID).some(mid => (matls[mid] || {}).params && matls[mid].params.DENSITY != null)) continue;
-        F.push({ severity:'ERROR', message:`&SURF '${s.params.ID}' has BURN_AWAY=.TRUE. but no BULK_DENSITY and no MATL with DENSITY.`, hint:"Add BULK_DENSITY=<kg/m³> to the SURF, or reference a MATL that defines DENSITY. FDS raises ERROR(607).", line:s.line, rule:'burn-away-bulk-density' });
+        F.push({ severity:'ERROR', message:`&SURF '${s.params.ID}' : BURN_AWAY=.TRUE. sans BULK_DENSITY ni MATL avec DENSITY.`, hint:"Ajoutez BULK_DENSITY=<kg/m³> à la SURF, ou référencez un MATL qui définit DENSITY. FDS lève ERROR(607).", line:s.line, rule:'burn-away-bulk-density' });
     }
 });
 
 _rule('ht3d-burn-away', (R, F) => {
     for (const s of R.filter(r => r.name === 'SURF')) {
         if (s.params.HT3D === true && s.params.BURN_AWAY === true)
-            F.push({ severity:'ERROR', message:`&SURF '${s.params.ID}' has both HT3D=.TRUE. and BURN_AWAY=.TRUE. — FDS raises ERROR(369).`, hint:"Use HT3D for conduction tracking or BURN_AWAY for mass removal, not both on the same surface.", line:s.line, rule:'ht3d-burn-away' });
+            F.push({ severity:'ERROR', message:`&SURF '${s.params.ID}' : HT3D=.TRUE. et BURN_AWAY=.TRUE. à la fois — FDS lève ERROR(369).`, hint:"Utilisez HT3D pour la conduction ou BURN_AWAY pour la perte de masse, pas les deux sur la même surface.", line:s.line, rule:'ht3d-burn-away' });
     }
 });
 
@@ -504,7 +504,7 @@ _rule('vent-not-planar', (R, F) => {
         if (!Array.isArray(xb) || xb.length !== 6 || v.params.MB) continue;
         const equalPairs = [[xb[0],xb[1]],[xb[2],xb[3]],[xb[4],xb[5]]].filter(([a,b]) => a === b).length;
         if (equalPairs === 0)
-            F.push({ severity:'ERROR', message:`&VENT at line ${v.line} XB=(${xb.join(',')}) is not planar — no coordinate pair is equal.`, hint:"A VENT must lie in a plane: set exactly one coordinate pair equal (e.g. x0=x1 for a YZ-plane). FDS raises ERROR(810).", line:v.line, rule:'vent-not-planar' });
+            F.push({ severity:'ERROR', message:`&VENT ligne ${v.line} : XB=(${xb.join(',')}) n’est pas plan — aucune paire de coordonnées n’est égale.`, hint:"Un VENT doit être plan : une seule paire de coordonnées égale (ex. x0=x1 pour un plan YZ). FDS lève ERROR(810).", line:v.line, rule:'vent-not-planar' });
     }
 });
 
@@ -518,7 +518,7 @@ _rule('surf-id-undefined', (R, F) => {
         if (!['VENT','OBST'].includes(r.name)) continue;
         for (const s of [..._asList(r.params.SURF_ID), ..._asList(r.params.SURF_IDS), ..._asList(r.params.SURF_ID6)]) {
             if (s && !defined.has(String(s)))
-                F.push({ severity:'ERROR', message:`&${r.name} at line ${r.line} references SURF_ID '${s}' which is not defined.`, hint:`Define &SURF ID='${s}', ... / or fix the reference. FDS raises ERROR(605) or ERROR(812).`, line:r.line, rule:'surf-id-undefined' });
+                F.push({ severity:'ERROR', message:`&${r.name} ligne ${r.line} : la SURF_ID '${s}' référencée n’est pas définie.`, hint:`Définissez &SURF ID='${s}', ... / ou corrigez la référence. FDS lève ERROR(605) ou ERROR(812).`, line:r.line, rule:'surf-id-undefined' });
         }
     }
 });
@@ -528,7 +528,7 @@ _rule('matl-id-undefined', (R, F) => {
     for (const r of R.filter(r => r.name === 'SURF')) {
         for (const m of _asList(r.params.MATL_ID)) {
             if (m && !defined.has(String(m)))
-                F.push({ severity:'ERROR', message:`&SURF '${r.params.ID}' references MATL_ID '${m}' which is not defined.`, hint:`Define &MATL ID='${m}', ... / earlier in the file. FDS raises ERROR(608).`, line:r.line, rule:'matl-id-undefined' });
+                F.push({ severity:'ERROR', message:`&SURF '${r.params.ID}' : le MATL_ID '${m}' référencé n’est pas défini.`, hint:`Définissez &MATL ID='${m}', ... / plus haut dans le fichier. FDS lève ERROR(608).`, line:r.line, rule:'matl-id-undefined' });
         }
     }
 });
@@ -540,7 +540,7 @@ _rule('ramp-id-undefined', (R, F) => {
         for (const [key, val] of Object.entries(r.params)) {
             if (!key.startsWith('RAMP_') || typeof val !== 'string' || !val) continue;
             if (!defined.has(val))
-                F.push({ severity:'WARNING', message:`&${r.name} at line ${r.line} references ${key}='${val}' — no matching &RAMP ID found.`, hint:`Define &RAMP ID='${val}', T=..., F=... / or fix the reference. FDS raises ERROR(391).`, line:r.line, rule:'ramp-id-undefined' });
+                F.push({ severity:'WARNING', message:`&${r.name} ligne ${r.line} : ${key}='${val}' ne correspond à aucun &RAMP ID.`, hint:`Définissez &RAMP ID='${val}', T=..., F=... / ou corrigez la référence. FDS lève ERROR(391).`, line:r.line, rule:'ramp-id-undefined' });
         }
     }
 });
@@ -551,7 +551,7 @@ _rule('prop-id-undefined', (R, F) => {
     for (const d of R.filter(r => r.name === 'DEVC')) {
         const pid = d.params.PROP_ID;
         if (pid && !defined.has(String(pid)))
-            F.push({ severity:'ERROR', message:`&DEVC '${d.params.ID||'?'}' references PROP_ID='${pid}' which is not defined.`, hint:`Define &PROP ID='${pid}', ... / or fix the reference. FDS raises ERROR(1043).`, line:d.line, rule:'prop-id-undefined' });
+            F.push({ severity:'ERROR', message:`&DEVC '${d.params.ID||'?'}' : le PROP_ID='${pid}' référencé n’est pas défini.`, hint:`Définissez &PROP ID='${pid}', ... / ou corrigez la référence. FDS lève ERROR(1043).`, line:d.line, rule:'prop-id-undefined' });
     }
 });
 
@@ -562,7 +562,7 @@ _rule('ctrl-id-undefined', (R, F) => {
         if (!['DEVC','VENT','OBST','HOLE'].includes(r.name)) continue;
         const cid = r.params.CTRL_ID;
         if (cid && !defined.has(String(cid)))
-            F.push({ severity:'WARNING', message:`&${r.name} at line ${r.line} references CTRL_ID='${cid}' which is not defined.`, hint:`Define &CTRL ID='${cid}', FUNCTION_TYPE='...', INPUT_ID='...' / or fix the reference. FDS raises ERROR(938).`, line:r.line, rule:'ctrl-id-undefined' });
+            F.push({ severity:'WARNING', message:`&${r.name} ligne ${r.line} : le CTRL_ID='${cid}' référencé n’est pas défini.`, hint:`Définissez &CTRL ID='${cid}', FUNCTION_TYPE='...', INPUT_ID='...' / ou corrigez la référence. FDS lève ERROR(938).`, line:r.line, rule:'ctrl-id-undefined' });
     }
 });
 
@@ -573,7 +573,7 @@ _rule('mult-id-undefined', (R, F) => {
         if (!['OBST','VENT','DEVC'].includes(r.name)) continue;
         const mid = r.params.MULT_ID;
         if (mid && !defined.has(String(mid)))
-            F.push({ severity:'ERROR', message:`&${r.name} at line ${r.line} references MULT_ID='${mid}' which is not defined.`, hint:`Define &MULT ID='${mid}', ... / or fix the reference. FDS raises ERROR(811).`, line:r.line, rule:'mult-id-undefined' });
+            F.push({ severity:'ERROR', message:`&${r.name} ligne ${r.line} : le MULT_ID='${mid}' référencé n’est pas défini.`, hint:`Définissez &MULT ID='${mid}', ... / ou corrigez la référence. FDS lève ERROR(811).`, line:r.line, rule:'mult-id-undefined' });
     }
 });
 
@@ -585,16 +585,16 @@ _rule('devc-quantity', (R, F) => {
         if (!q) continue;
         const qU = String(q).toUpperCase();
         if (qU in _REJECTED_DEVC_Q)
-            F.push({ severity:'ERROR', message:`&DEVC '${d.params.ID||'?'}' uses QUANTITY='${q}' which FDS6 rejects (ERROR 1042).`, hint:_REJECTED_DEVC_Q[qU], line:d.line, rule:'devc-quantity' });
+            F.push({ severity:'ERROR', message:`&DEVC '${d.params.ID||'?'}' : QUANTITY='${q}' est refusée par FDS6 (ERROR 1042).`, hint:_REJECTED_DEVC_Q[qU], line:d.line, rule:'devc-quantity' });
         else if (!_KNOWN_DEVC_Q.has(qU))
-            F.push({ severity:'WARNING', message:`&DEVC '${d.params.ID||'?'}' uses QUANTITY='${q}' — not in the known-valid list.`, hint:"Verify spelling/case in the FDS User Guide.", line:d.line, rule:'devc-quantity' });
+            F.push({ severity:'WARNING', message:`&DEVC '${d.params.ID||'?'}' : QUANTITY='${q}' ne figure pas dans la liste des grandeurs connues.`, hint:"Vérifiez l’orthographe et la casse dans le FDS User Guide.", line:d.line, rule:'devc-quantity' });
     }
 });
 
 _rule('devc-missing-output', (R, F) => {
     for (const d of R.filter(r => r.name === 'DEVC')) {
         if (!d.params.QUANTITY && !d.params.PROP_ID && !d.params.STATISTICS)
-            F.push({ severity:'WARNING', message:`&DEVC '${d.params.ID||'?'}' at line ${d.line} has no QUANTITY and no PROP_ID.`, hint:"Add QUANTITY='<name>' (gas-phase measurement) or PROP_ID='<name>' (sprinkler/detector). FDS raises ERROR(886).", line:d.line, rule:'devc-missing-output' });
+            F.push({ severity:'WARNING', message:`&DEVC '${d.params.ID||'?'}' ligne ${d.line} : ni QUANTITY ni PROP_ID.`, hint:"Ajoutez QUANTITY='<nom>' (mesure en phase gazeuse) ou PROP_ID='<nom>' (sprinkleur/détecteur). FDS lève ERROR(886).", line:d.line, rule:'devc-missing-output' });
     }
 });
 
@@ -603,7 +603,7 @@ _rule('devc-wall-ior', (R, F) => {
         const q = d.params.QUANTITY;
         if (!q || !_WALL_DEVC_Q.has(String(q).toUpperCase())) continue;
         if (Array.isArray(d.params.XYZ) && d.params.IOR == null && !Array.isArray(d.params.XB))
-            F.push({ severity:'WARNING', message:`&DEVC '${d.params.ID||'?'}' measures '${q}' at XYZ without IOR.`, hint:"Add IOR=±1/±2/±3 to specify which surface face to measure. Without it FDS picks arbitrarily.", line:d.line, rule:'devc-wall-ior' });
+            F.push({ severity:'WARNING', message:`&DEVC '${d.params.ID||'?'}' mesure '${q}' en XYZ sans IOR.`, hint:"Ajoutez IOR=±1/±2/±3 pour indiquer la face mesurée. Sinon FDS en choisit une arbitrairement.", line:d.line, rule:'devc-wall-ior' });
     }
 });
 
@@ -612,7 +612,7 @@ _rule('devc-zone-needs-xb', (R, F) => {
         const q = d.params.QUANTITY;
         if (!q || !_ZONE_DEVC_Q.has(String(q).toUpperCase())) continue;
         if (Array.isArray(d.params.XYZ) && !(Array.isArray(d.params.XB) && d.params.XB.length === 6))
-            F.push({ severity:'ERROR', message:`&DEVC '${d.params.ID||'?'}' uses QUANTITY='${q}' with XYZ instead of XB.`, hint:`'${q}' integrates over a volume — replace XYZ with XB=x0,x1,y0,y1,z0,z1.`, line:d.line, rule:'devc-zone-needs-xb' });
+            F.push({ severity:'ERROR', message:`&DEVC '${d.params.ID||'?'}' : QUANTITY='${q}' avec XYZ au lieu de XB.`, hint:`'${q}' s’intègre sur un volume — remplacez XYZ par XB=x0,x1,y0,y1,z0,z1.`, line:d.line, rule:'devc-zone-needs-xb' });
     }
 });
 
@@ -627,8 +627,8 @@ _rule('devc-in-hole', (R, F) => {
             const [x0,x1,y0,y1,z0,z1] = h.params.XB;
             if (x0<=x&&x<=x1&&y0<=y&&y<=y1&&z0<=z&&z<=z1) {
                 const sev = d.params.IOR != null ? 'ERROR' : 'WARNING';
-                const iorNote = d.params.IOR != null ? ` and uses IOR=${d.params.IOR}` : '';
-                F.push({ severity:sev, message:`&DEVC '${d.params.ID||'?'}' XYZ=(${xyz.join(',')}) is inside &HOLE at line ${h.line}${iorNote}.`, hint:"The wall has been carved away. Move the device to where the surface still exists.", line:d.line, rule:'devc-in-hole' });
+                const iorNote = d.params.IOR != null ? ` et utilise IOR=${d.params.IOR}` : '';
+                F.push({ severity:sev, message:`&DEVC '${d.params.ID||'?'}' : XYZ=(${xyz.join(',')}) se trouve dans le &HOLE de la ligne ${h.line}${iorNote}.`, hint:"La paroi a été évidée à cet endroit. Déplacez le capteur là où la surface existe encore.", line:d.line, rule:'devc-in-hole' });
             }
         }
     }
@@ -641,7 +641,7 @@ _rule('devc-outside-domain', (R, F) => {
     for (const d of R.filter(r => r.name === 'DEVC')) {
         const xyz = d.params.XYZ;
         if (Array.isArray(xyz) && xyz.length === 3 && !inside(xyz))
-            F.push({ severity:'WARNING', message:`&DEVC '${d.params.ID||'?'}' XYZ=(${xyz.join(',')}) is outside every &MESH.`, hint:"The device will be silently dropped or relocated. Move it inside a mesh boundary.", line:d.line, rule:'devc-outside-domain' });
+            F.push({ severity:'WARNING', message:`&DEVC '${d.params.ID||'?'}' : XYZ=(${xyz.join(',')}) est hors de tout &MESH.`, hint:"Le capteur sera ignoré ou déplacé sans avertissement. Placez-le à l’intérieur d’un maillage.", line:d.line, rule:'devc-outside-domain' });
     }
 });
 
@@ -651,9 +651,9 @@ _rule('slcf-quantity', (R, F) => {
         if (!q) continue;
         const qU = String(q).toUpperCase();
         if (qU in _REJECTED_SLCF_Q)
-            F.push({ severity:'ERROR', message:`&SLCF uses QUANTITY='${q}' which FDS6 rejects (ERROR 1042).`, hint:_REJECTED_SLCF_Q[qU], line:s.line, rule:'slcf-quantity' });
+            F.push({ severity:'ERROR', message:`&SLCF : QUANTITY='${q}' est refusée par FDS6 (ERROR 1042).`, hint:_REJECTED_SLCF_Q[qU], line:s.line, rule:'slcf-quantity' });
         else if (!_KNOWN_SLCF_Q.has(qU))
-            F.push({ severity:'WARNING', message:`&SLCF uses QUANTITY='${q}' — not in the known-valid list.`, hint:"Verify spelling/case in the FDS User Guide.", line:s.line, rule:'slcf-quantity' });
+            F.push({ severity:'WARNING', message:`&SLCF : QUANTITY='${q}' ne figure pas dans la liste des grandeurs connues.`, hint:"Vérifiez l’orthographe et la casse dans le FDS User Guide.", line:s.line, rule:'slcf-quantity' });
     }
 });
 
@@ -668,16 +668,16 @@ _rule('spec-id-undefined', (R, F) => {
         if (!sid) continue;
         const sU = String(sid).toUpperCase();
         if (sU === 'SOOT' && implSoot)
-            F.push({ severity:'ERROR', message:`&${r.name} uses QUANTITY='${q}', SPEC_ID='SOOT' but soot is implicit (SOOT_YIELD in &REAC). FDS will abort with ERROR 1042.`, hint:"Use QUANTITY='VISIBILITY' (always available with implicit soot).", line:r.line, rule:'spec-id-undefined' });
+            F.push({ severity:'ERROR', message:`&${r.name} : QUANTITY='${q}', SPEC_ID='SOOT' alors que la suie est implicite (SOOT_YIELD dans &REAC). FDS s’arrêtera avec ERROR 1042.`, hint:"Utilisez QUANTITY='VISIBILITY' (toujours disponible avec la suie implicite).", line:r.line, rule:'spec-id-undefined' });
         else if (!known.has(sU))
-            F.push({ severity:'WARNING', message:`&${r.name} references SPEC_ID='${sid}' which is not defined via &SPEC.`, hint:`Define &SPEC ID='${sid}', FORMULA='...' / or fix the SPEC_ID spelling.`, line:r.line, rule:'spec-id-undefined' });
+            F.push({ severity:'WARNING', message:`&${r.name} : le SPEC_ID='${sid}' référencé n’est pas défini par &SPEC.`, hint:`Définissez &SPEC ID='${sid}', FORMULA='...' / ou corrigez l’orthographe du SPEC_ID.`, line:r.line, rule:'spec-id-undefined' });
     }
 });
 
 _rule('ctrl-missing-function-type', (R, F) => {
     for (const c of R.filter(r => r.name === 'CTRL')) {
         if (!c.params.FUNCTION_TYPE)
-            F.push({ severity:'ERROR', message:`&CTRL '${c.params.ID||'?'}' at line ${c.line} has no FUNCTION_TYPE.`, hint:"Add FUNCTION_TYPE='ANY'/'ALL'/'TIME_DELAY'/'DEADBAND'/etc. FDS raises ERROR(901).", line:c.line, rule:'ctrl-missing-function-type' });
+            F.push({ severity:'ERROR', message:`&CTRL '${c.params.ID||'?'}' ligne ${c.line} : pas de FUNCTION_TYPE.`, hint:"Ajoutez FUNCTION_TYPE='ANY'/'ALL'/'TIME_DELAY'/'DEADBAND'/etc. FDS lève ERROR(901).", line:c.line, rule:'ctrl-missing-function-type' });
     }
 });
 
@@ -687,7 +687,7 @@ _rule('geom-faces-stride', (R, F) => {
     for (const r of R.filter(r => r.name === 'GEOM')) {
         const faces = _asList(r.params.FACES);
         if (faces.length > 0 && faces.length % 4 !== 0)
-            F.push({ severity:'ERROR', message:`&GEOM '${r.params.ID}' has FACES with ${faces.length} integers — not a multiple of 4.`, hint:"Each face is (v1,v2,v3,surf_id_idx) = 4 integers. Append the SURF_ID index to every face. FDS raises ERROR(701). See User Guide Sec. 7.3.2.", line:r.line, rule:'geom-faces-stride' });
+            F.push({ severity:'ERROR', message:`&GEOM '${r.params.ID}' : FACES comporte ${faces.length} entiers — pas un multiple de 4.`, hint:"Chaque face s’écrit (v1,v2,v3,indice_surf_id) = 4 entiers. Ajoutez l’indice de SURF_ID à chaque face. FDS lève ERROR(701). Voir User Guide §7.3.2.", line:r.line, rule:'geom-faces-stride' });
     }
 });
 
@@ -708,9 +708,9 @@ _rule('vel-sign-convention', (R, F) => {
         const isEx = EXHAUST.some(t => sid.includes(t));
         const isSu = SUPPLY.some(t => sid.includes(t));
         if (isEx && flowVal < 0)
-            F.push({ severity:'WARNING', message:`&SURF '${s.params.ID}' has ${flowKey}=${flowVal} (negative). Name implies EXHAUST but negative pushes flow INTO the domain.`, hint:`Positive ${flowKey} draws flow OUT of the domain (exhaust). Flip sign to ${-flowVal} for extraction.`, line:s.line, rule:'vel-sign-convention' });
+            F.push({ severity:'WARNING', message:`&SURF '${s.params.ID}' : ${flowKey}=${flowVal} (négatif). Le nom évoque une EXTRACTION mais une valeur négative souffle DANS le domaine.`, hint:`Un ${flowKey} positif aspire HORS du domaine (extraction). Inversez le signe (${-flowVal}) pour une extraction.`, line:s.line, rule:'vel-sign-convention' });
         else if (isSu && flowVal > 0)
-            F.push({ severity:'WARNING', message:`&SURF '${s.params.ID}' has ${flowKey}=${flowVal} (positive). Name implies SUPPLY but positive draws flow OUT.`, hint:`Negative ${flowKey} pushes flow INTO the domain (supply). Flip sign to ${-flowVal}.`, line:s.line, rule:'vel-sign-convention' });
+            F.push({ severity:'WARNING', message:`&SURF '${s.params.ID}' : ${flowKey}=${flowVal} (positif). Le nom évoque un SOUFFLAGE mais une valeur positive aspire HORS du domaine.`, hint:`Un ${flowKey} négatif souffle DANS le domaine (soufflage). Inversez le signe (${-flowVal}).`, line:s.line, rule:'vel-sign-convention' });
     }
 });
 
@@ -731,7 +731,7 @@ _rule('ramp-t-monotonic', (R, F) => {
             const prevT = ramps[i-1].params.T, currT = ramps[i].params.T;
             if (typeof prevT !== 'number' || typeof currT !== 'number') continue;
             if (currT <= prevT)
-                F.push({ severity:'ERROR', message:`&RAMP ID='${id}': T=${currT} at line ${ramps[i].line} is not greater than T=${prevT} at line ${ramps[i-1].line}.`, hint:"RAMP lines must be listed with monotonically increasing T (FDS User Guide §11.1). FDS may silently produce wrong interpolation.", line:ramps[i].line, rule:'ramp-t-monotonic' });
+                F.push({ severity:'ERROR', message:`&RAMP ID='${id}' : T=${currT} ligne ${ramps[i].line} n’est pas supérieur à T=${prevT} ligne ${ramps[i-1].line}.`, hint:"Les lignes d’une RAMP doivent avoir des T strictement croissants (FDS User Guide §11.1). Sinon l’interpolation peut être fausse sans avertissement.", line:ramps[i].line, rule:'ramp-t-monotonic' });
         }
     }
 });
@@ -750,9 +750,9 @@ _rule('mesh-cell-aspect-ratio', (R, F) => {
         if (dims.length < 2) continue;
         const ratio = Math.max(...dims) / Math.min(...dims);
         if (ratio > 3)
-            F.push({ severity:'WARNING', message:`&MESH at line ${m.line} cell aspect ratio ≈ ${ratio.toFixed(1)}:1 (dx=${dx.toFixed(3)}, dy=${dy.toFixed(3)}, dz=${dz.toFixed(3)} m).`, hint:"Cell aspect ratio >2:1 is a common cause of numerical instability (FDS User Guide §16.2.4). Refine or redistribute cells.", line:m.line, rule:'mesh-cell-aspect-ratio' });
+            F.push({ severity:'WARNING', message:`&MESH ligne ${m.line} : rapport d’aspect des cellules ≈ ${ratio.toFixed(1)}:1 (dx=${dx.toFixed(3)}, dy=${dy.toFixed(3)}, dz=${dz.toFixed(3)} m).`, hint:"Un rapport d’aspect > 2:1 est une cause fréquente d’instabilité numérique (FDS User Guide §16.2.4). Affinez ou répartissez autrement les cellules.", line:m.line, rule:'mesh-cell-aspect-ratio' });
         else if (ratio > 2)
-            F.push({ severity:'INFO', message:`&MESH at line ${m.line} cell aspect ratio ≈ ${ratio.toFixed(1)}:1 (dx=${dx.toFixed(3)}, dy=${dy.toFixed(3)}, dz=${dz.toFixed(3)} m).`, hint:"Aspect ratios approaching 2:1 begin to degrade LES accuracy. Consider more uniform cell sizing.", line:m.line, rule:'mesh-cell-aspect-ratio' });
+            F.push({ severity:'INFO', message:`&MESH ligne ${m.line} : rapport d’aspect des cellules ≈ ${ratio.toFixed(1)}:1 (dx=${dx.toFixed(3)}, dy=${dy.toFixed(3)}, dz=${dz.toFixed(3)} m).`, hint:"Un rapport d’aspect proche de 2:1 commence à dégrader la précision LES. Préférez des cellules plus cubiques.", line:m.line, rule:'mesh-cell-aspect-ratio' });
     }
 });
 
@@ -763,7 +763,7 @@ _rule('init-part-id-undefined', (R, F) => {
     for (const r of R.filter(r => r.name === 'INIT')) {
         const pid = r.params.PART_ID;
         if (pid && !parts.has(String(pid)))
-            F.push({ severity:'ERROR', message:`&INIT at line ${r.line} references PART_ID='${pid}' which is not defined.`, hint:`Define &PART ID='${pid}', SPEC_ID='...', ... / or fix the PART_ID.`, line:r.line, rule:'init-part-id-undefined' });
+            F.push({ severity:'ERROR', message:`&INIT ligne ${r.line} : le PART_ID='${pid}' référencé n’est pas défini.`, hint:`Définissez &PART ID='${pid}', SPEC_ID='...', ... / ou corrigez le PART_ID.`, line:r.line, rule:'init-part-id-undefined' });
     }
 });
 
@@ -773,7 +773,7 @@ _rule('init-part-id-undefined', (R, F) => {
 _rule('deprecated-params', (R, F) => {
     for (const r of R) {
         if (r.params.MOISTURE_CONTENT != null)
-            F.push({ severity:'WARNING', message:`&${r.name} at line ${r.line} uses MOISTURE_CONTENT — the old FDS5 parameter name.`, hint:"Rename to MOISTURE_FRACTION (FDS6 User Guide §11.4). MOISTURE_CONTENT is silently ignored in FDS6, giving zero moisture.", line:r.line, rule:'deprecated-params' });
+            F.push({ severity:'WARNING', message:`&${r.name} ligne ${r.line} : utilise MOISTURE_CONTENT, ancien nom de paramètre FDS5.`, hint:"Renommez en MOISTURE_FRACTION (FDS6 User Guide §11.4). MOISTURE_CONTENT est ignoré sans avertissement par FDS6 : humidité nulle.", line:r.line, rule:'deprecated-params' });
     }
 });
 
@@ -783,7 +783,7 @@ _rule('dump-nframes-positive', (R, F) => {
     for (const r of R.filter(r => r.name === 'DUMP')) {
         const nf = r.params.NFRAMES;
         if (typeof nf === 'number' && nf < 1)
-            F.push({ severity:'ERROR', message:`&DUMP NFRAMES=${nf} — must be a positive integer.`, hint:"NFRAMES is the number of output time frames. Default is 1000. Zero causes a division-by-zero at output time.", line:r.line, rule:'dump-nframes-positive' });
+            F.push({ severity:'ERROR', message:`&DUMP NFRAMES=${nf} — doit être un entier positif.`, hint:"NFRAMES est le nombre d’instants de sortie (1000 par défaut). Zéro provoque une division par zéro à l’écriture des sorties.", line:r.line, rule:'dump-nframes-positive' });
     }
 });
 
@@ -810,7 +810,7 @@ _rule('reac-fuel-species', (R, F) => {
         if (!fuel) continue;
         const fU = String(fuel).toUpperCase();
         if (!specDefined.has(fU) && !KNOWN_FUELS.has(fU))
-            F.push({ severity:'WARNING', message:`&REAC FUEL='${fuel}' is not a predefined FDS species and no &SPEC with this ID is defined.`, hint:`Define &SPEC ID='${fuel}', FORMULA='CxHy', MW=..., ... / or use a standard name like PROPANE or N-HEPTANE.`, line:r.line, rule:'reac-fuel-species' });
+            F.push({ severity:'WARNING', message:`&REAC FUEL='${fuel}' n’est pas une espèce prédéfinie de FDS et aucun &SPEC ne porte cet ID.`, hint:`Définissez &SPEC ID='${fuel}', FORMULA='CxHy', MW=..., ... / ou utilisez un nom standard comme PROPANE ou N-HEPTANE.`, line:r.line, rule:'reac-fuel-species' });
     }
 });
 
@@ -821,7 +821,7 @@ _rule('surf-vel-flow-conflict', (R, F) => {
         const hasVel  = s.params.VEL != null || s.params.VEL_T != null;
         const hasFlow = s.params.VOLUME_FLOW != null || s.params.MASS_FLUX != null || s.params.MASS_FLOW_RATE != null;
         if (hasVel && hasFlow)
-            F.push({ severity:'WARNING', message:`&SURF '${s.params.ID||'?'}' specifies both velocity (VEL/VEL_T) and a flow rate (VOLUME_FLOW/MASS_FLUX/MASS_FLOW_RATE).`, hint:"Specify only one flow type. FDS will use one and silently ignore the other, giving unexpected flow rates.", line:s.line, rule:'surf-vel-flow-conflict' });
+            F.push({ severity:'WARNING', message:`&SURF '${s.params.ID||'?'}' définit à la fois une vitesse (VEL/VEL_T) et un débit (VOLUME_FLOW/MASS_FLUX/MASS_FLOW_RATE).`, hint:"Ne définissez qu’un seul type de débit. FDS en retient un et ignore l’autre sans avertissement.", line:s.line, rule:'surf-vel-flow-conflict' });
     }
 });
 
@@ -832,7 +832,7 @@ _rule('chid-length', (R, F) => {
     for (const r of R.filter(r => r.name === 'HEAD')) {
         const chid = String(r.params.CHID || '');
         if (chid.length > 39)
-            F.push({ severity:'ERROR', message:`CHID '${chid}' is ${chid.length} characters — FDS rejects CHID longer than 39 characters.`, hint:`Shorten CHID to ≤39 characters. FDS uses CHID as the base filename prefix, and longer values cause a hard crash at startup.`, line:r.line, rule:'chid-length' });
+            F.push({ severity:'ERROR', message:`Le CHID '${chid}' fait ${chid.length} caractères — FDS refuse un CHID de plus de 39 caractères.`, hint:`Raccourcissez le CHID à 39 caractères maximum. Il sert de préfixe aux fichiers de sortie ; plus long, FDS s’arrête au démarrage.`, line:r.line, rule:'chid-length' });
     }
 });
 
@@ -845,20 +845,20 @@ _rule('array-count', (R, F) => {
         if (xb !== undefined) {
             const n = Array.isArray(xb) ? xb.length : 1;
             if (n !== 6)
-                F.push({ severity:'ERROR', message:`&${r.name} at line ${r.line} XB has ${n} value${n===1?'':'s'} — exactly 6 required (x0,x1,y0,y1,z0,z1).`, hint:`Count the commas: XB must be six comma-separated numbers. FDS raises ERROR(119) with a wrong-length XB.`, line:r.line, rule:'array-count' });
+                F.push({ severity:'ERROR', message:`&${r.name} ligne ${r.line} : XB compte ${n} valeur${n===1?'':'s'} — 6 attendues (x0,x1,y0,y1,z0,z1).`, hint:`Comptez les virgules : XB doit contenir six nombres séparés par des virgules. FDS lève ERROR(119) sinon.`, line:r.line, rule:'array-count' });
         }
         const xyz = r.params.XYZ;
         if (xyz !== undefined) {
             const n = Array.isArray(xyz) ? xyz.length : 1;
             if (n !== 3)
-                F.push({ severity:'ERROR', message:`&${r.name} at line ${r.line} XYZ has ${n} value${n===1?'':'s'} — exactly 3 required (x,y,z).`, hint:`XYZ must be three comma-separated numbers: XYZ=x,y,z.`, line:r.line, rule:'array-count' });
+                F.push({ severity:'ERROR', message:`&${r.name} ligne ${r.line} : XYZ compte ${n} valeur${n===1?'':'s'} — 3 attendues (x,y,z).`, hint:`XYZ doit contenir trois nombres séparés par des virgules : XYZ=x,y,z.`, line:r.line, rule:'array-count' });
         }
         if (r.name === 'MESH') {
             const ijk = r.params.IJK;
             if (ijk !== undefined) {
                 const n = Array.isArray(ijk) ? ijk.length : 1;
                 if (n !== 3)
-                    F.push({ severity:'ERROR', message:`&MESH at line ${r.line} IJK has ${n} value${n===1?'':'s'} — exactly 3 required (I,J,K).`, hint:`IJK must be three integers: IJK=I,J,K. FDS raises ERROR(113).`, line:r.line, rule:'array-count' });
+                    F.push({ severity:'ERROR', message:`&MESH ligne ${r.line} : IJK compte ${n} valeur${n===1?'':'s'} — 3 attendues (I,J,K).`, hint:`IJK doit contenir trois entiers : IJK=I,J,K. FDS lève ERROR(113).`, line:r.line, rule:'array-count' });
             }
         }
     }
@@ -870,7 +870,7 @@ _rule('time-t-begin-end', (R, F) => {
     for (const r of R.filter(r => r.name === 'TIME')) {
         const tb = r.params.T_BEGIN, te = r.params.T_END;
         if (typeof tb === 'number' && typeof te === 'number' && tb >= te)
-            F.push({ severity:'ERROR', message:`&TIME T_BEGIN=${tb} ≥ T_END=${te} — simulation would run for zero or negative time.`, hint:`T_BEGIN must be strictly less than T_END. The default T_BEGIN is 0.0.`, line:r.line, rule:'time-t-begin-end' });
+            F.push({ severity:'ERROR', message:`&TIME T_BEGIN=${tb} ≥ T_END=${te} — la durée simulée serait nulle ou négative.`, hint:`T_BEGIN doit être strictement inférieur à T_END. T_BEGIN vaut 0.0 par défaut.`, line:r.line, rule:'time-t-begin-end' });
     }
 });
 
@@ -883,12 +883,12 @@ _rule('reac-yield-range', (R, F) => {
         for (const [k, v] of [['SOOT_YIELD', sy], ['CO_YIELD', cy]]) {
             if (typeof v !== 'number') continue;
             if (v < 0)
-                F.push({ severity:'ERROR', message:`&REAC ${k}=${v} is negative — mass fractions cannot be negative.`, hint:`${k} is in kg soot (or CO) per kg fuel burned. Negative values are unphysical and FDS will abort.`, line:r.line, rule:'reac-yield-range' });
+                F.push({ severity:'ERROR', message:`&REAC ${k}=${v} est négatif — un rendement massique ne peut pas être négatif.`, hint:`${k} s’exprime en kg de suie (ou de CO) par kg de combustible brûlé. Une valeur négative n’a pas de sens physique et FDS s’arrêtera.`, line:r.line, rule:'reac-yield-range' });
             else if (v > 1)
-                F.push({ severity:'ERROR', message:`&REAC ${k}=${v} exceeds 1.0 — cannot produce more species mass than fuel mass.`, hint:`${k} is a mass fraction (kg/kg). Values >1 violate conservation of mass.`, line:r.line, rule:'reac-yield-range' });
+                F.push({ severity:'ERROR', message:`&REAC ${k}=${v} dépasse 1.0 — impossible de produire plus de masse que le combustible.`, hint:`${k} est une fraction massique (kg/kg). Une valeur > 1 viole la conservation de la masse.`, line:r.line, rule:'reac-yield-range' });
         }
         if (typeof sy === 'number' && typeof cy === 'number' && sy + cy > 1)
-            F.push({ severity:'WARNING', message:`&REAC SOOT_YIELD + CO_YIELD = ${(sy+cy).toFixed(3)} > 1.0 — combined yields exceed fuel mass.`, hint:`Typical values: SOOT_YIELD 0.01–0.10, CO_YIELD 0.01–0.05 depending on fuel. Their sum must be < 1.`, line:r.line, rule:'reac-yield-range' });
+            F.push({ severity:'WARNING', message:`&REAC SOOT_YIELD + CO_YIELD = ${(sy+cy).toFixed(3)} > 1.0 — les rendements cumulés dépassent la masse de combustible.`, hint:`Valeurs usuelles : SOOT_YIELD 0,01–0,10, CO_YIELD 0,01–0,05 selon le combustible. Leur somme doit rester < 1.`, line:r.line, rule:'reac-yield-range' });
     }
 });
 
@@ -899,7 +899,7 @@ _rule('surf-hrrpua-zero', (R, F) => {
     for (const s of R.filter(r => r.name === 'SURF')) {
         for (const k of ['HRRPUA', 'MLRPUA']) {
             if (s.params[k] === 0)
-                F.push({ severity:'WARNING', message:`&SURF '${s.params.ID||'?'}' has ${k}=0 — this surface releases no heat and produces no fire.`, hint:`${k}=0 is almost certainly a typo. Set a positive value (e.g. HRRPUA=250 kW/m²) or remove the parameter entirely.`, line:s.line, rule:'surf-hrrpua-zero' });
+                F.push({ severity:'WARNING', message:`&SURF '${s.params.ID||'?'}' : ${k}=0 — cette surface ne dégage aucune chaleur et ne produit pas de feu.`, hint:`${k}=0 est très probablement une faute de frappe. Indiquez une valeur positive (ex. HRRPUA=250 kW/m²) ou supprimez le paramètre.`, line:s.line, rule:'surf-hrrpua-zero' });
         }
     }
 });
@@ -916,7 +916,7 @@ _rule('ramp-single-entry', (R, F) => {
     }
     for (const [id, entries] of Object.entries(groups)) {
         if (entries.length === 1)
-            F.push({ severity:'WARNING', message:`&RAMP ID='${id}' has only 1 entry — interpolation requires at least 2 (T,F) pairs.`, hint:`Add a second &RAMP ID='${id}', T=..., F=... / entry. A single point makes the ramp act as a constant, which may not be what you intend.`, line:entries[0].line, rule:'ramp-single-entry' });
+            F.push({ severity:'WARNING', message:`&RAMP ID='${id}' n’a qu’une seule ligne — l’interpolation demande au moins 2 couples (T,F).`, hint:`Ajoutez une seconde ligne &RAMP ID='${id}', T=..., F=... /. Un seul point rend la rampe constante, ce qui n’est sans doute pas voulu.`, line:entries[0].line, rule:'ramp-single-entry' });
     }
 });
 
@@ -926,7 +926,7 @@ _rule('devc-id-missing', (R, F) => {
     for (const d of R.filter(r => r.name === 'DEVC')) {
         const id = d.params.ID;
         if (!id || (typeof id === 'string' && !id.trim()))
-            F.push({ severity:'WARNING', message:`&DEVC at line ${d.line} has no ID — output column will be unlabelled in _devc.csv.`, hint:`Add ID='<name>' so the device can be identified in output files and referenced by CTRL.`, line:d.line, rule:'devc-id-missing' });
+            F.push({ severity:'WARNING', message:`&DEVC ligne ${d.line} : pas d’ID — la colonne de _devc.csv n’aura pas de nom.`, hint:`Ajoutez ID='<nom>' pour identifier le capteur dans les sorties et le référencer depuis un CTRL.`, line:d.line, rule:'devc-id-missing' });
     }
 });
 
@@ -944,7 +944,7 @@ _rule('vent-outside-domain', (R, F) => {
         const xb = v.params.XB;
         if (!Array.isArray(xb) || xb.length !== 6 || v.params.MB) continue;
         if (!meshes.some(m => overlaps(xb, m)))
-            F.push({ severity:'ERROR', message:`&VENT at line ${v.line} XB=(${xb.join(',')}) is outside all &MESH boundaries — it will be silently ignored by FDS.`, hint:`Move the VENT inside a mesh face, or use MB='XMIN'/'XMAX'/'YMIN'/'YMAX'/'ZMIN'/'ZMAX' to attach it to a mesh boundary.`, line:v.line, rule:'vent-outside-domain' });
+            F.push({ severity:'ERROR', message:`&VENT ligne ${v.line} : XB=(${xb.join(',')}) est hors de tous les &MESH — FDS l’ignorera sans avertissement.`, hint:`Placez le VENT sur une face de maillage, ou utilisez MB='XMIN'/'XMAX'/'YMIN'/'YMAX'/'ZMIN'/'ZMAX' pour l’accrocher à une frontière.`, line:v.line, rule:'vent-outside-domain' });
     }
 });
 
@@ -959,7 +959,7 @@ _rule('obst-outside-domain', (R, F) => {
         const xb = o.params.XB;
         if (!Array.isArray(xb) || xb.length !== 6) continue;
         if (!meshes.some(m => overlaps(xb, m)))
-            F.push({ severity:'WARNING', message:`&OBST at line ${o.line} XB=(${xb.join(',')}) has no overlap with any &MESH — it will be silently ignored.`, hint:`Check the coordinates. FDS clips obstructions to mesh boundaries but drops those with zero overlap entirely.`, line:o.line, rule:'obst-outside-domain' });
+            F.push({ severity:'WARNING', message:`&OBST ligne ${o.line} : XB=(${xb.join(',')}) ne recoupe aucun &MESH — elle sera ignorée sans avertissement.`, hint:`Vérifiez les coordonnées. FDS rogne les obstructions aux limites des maillages mais supprime celles qui n’en recoupent aucun.`, line:o.line, rule:'obst-outside-domain' });
     }
 });
 
@@ -1021,8 +1021,8 @@ _rule('vent-not-on-surface', (R, F) => {
 
         F.push({
             severity: 'WARNING',
-            message: `&VENT at line ${v.line} XB=(${xb.join(',')}) is not on a mesh boundary or any &OBST face — FDS will snap it to the nearest surface, which may not be the intended one.`,
-            hint: `Place the VENT flush against a mesh boundary (or use MB='XMIN'/'XMAX'/'YMIN'/'YMAX'/'ZMIN'/'ZMAX') or align it with an OBST face. A floating VENT is silently redirected by FDS.`,
+            message: `&VENT ligne ${v.line} : XB=(${xb.join(',')}) n’est ni sur une frontière de maillage ni sur une face d’OBST — FDS le recalera sur la surface la plus proche, qui n’est peut-être pas la bonne.`,
+            hint: `Plaquez le VENT contre une frontière de maillage (ou utilisez MB='XMIN'/'XMAX'/'YMIN'/'YMAX'/'ZMIN'/'ZMAX') ou alignez-le sur une face d’OBST. Un VENT « flottant » est déplacé par FDS sans avertissement.`,
             line: v.line,
             rule: 'vent-not-on-surface',
         });
@@ -1038,9 +1038,9 @@ _rule('matl-arrhenius-incomplete', (R, F) => {
         const hasE   = m.params.E != null;
         const hasRef = m.params.REFERENCE_TEMPERATURE != null;
         if (hasA && !hasE && !hasRef)
-            F.push({ severity:'WARNING', message:`&MATL '${m.params.ID||'?'}' has A but no E or REFERENCE_TEMPERATURE — Arrhenius pair is incomplete.`, hint:`Add E=<J/mol> (activation energy) or REFERENCE_TEMPERATURE=<°C>. FDS needs both A and E (or A and REFERENCE_TEMPERATURE) to compute pyrolysis rates.`, line:m.line, rule:'matl-arrhenius-incomplete' });
+            F.push({ severity:'WARNING', message:`&MATL '${m.params.ID||'?'}' : A sans E ni REFERENCE_TEMPERATURE — couple d’Arrhenius incomplet.`, hint:`Ajoutez E=<J/mol> (énergie d’activation) ou REFERENCE_TEMPERATURE=<°C>. FDS a besoin de A et E (ou A et REFERENCE_TEMPERATURE) pour calculer la pyrolyse.`, line:m.line, rule:'matl-arrhenius-incomplete' });
         if (hasE && !hasA)
-            F.push({ severity:'WARNING', message:`&MATL '${m.params.ID||'?'}' has E but no A — Arrhenius pre-exponential factor is missing.`, hint:`Add A=<s⁻¹> (pre-exponential factor). FDS needs A alongside E for Arrhenius pyrolysis kinetics.`, line:m.line, rule:'matl-arrhenius-incomplete' });
+            F.push({ severity:'WARNING', message:`&MATL '${m.params.ID||'?'}' : E sans A — le facteur pré-exponentiel d’Arrhenius manque.`, hint:`Ajoutez A=<s⁻¹> (facteur pré-exponentiel). FDS a besoin de A avec E pour la cinétique de pyrolyse d’Arrhenius.`, line:m.line, rule:'matl-arrhenius-incomplete' });
     }
 });
 
@@ -1053,13 +1053,13 @@ _rule('surf-matl-mass-fraction', (R, F) => {
         const fracs = _asList(s.params.MATL_MASS_FRACTION);
         if (!ids.length || !fracs.length) continue;
         if (fracs.length !== ids.length) {
-            F.push({ severity:'WARNING', message:`&SURF '${s.params.ID||'?'}' has ${ids.length} MATL_ID entries but ${fracs.length} MATL_MASS_FRACTION values — counts must match.`, hint:`Provide one MATL_MASS_FRACTION value per MATL_ID. FDS may silently assign incorrect fractions.`, line:s.line, rule:'surf-matl-mass-fraction' });
+            F.push({ severity:'WARNING', message:`&SURF '${s.params.ID||'?'}' : ${ids.length} MATL_ID mais ${fracs.length} valeurs MATL_MASS_FRACTION — les nombres doivent correspondre.`, hint:`Donnez une valeur MATL_MASS_FRACTION par MATL_ID. Sinon FDS peut attribuer de mauvaises fractions sans avertissement.`, line:s.line, rule:'surf-matl-mass-fraction' });
         } else {
             const nums = fracs.filter(f => typeof f === 'number');
             if (nums.length === fracs.length) {
                 const sum = nums.reduce((a, b) => a + b, 0);
                 if (Math.abs(sum - 1.0) > 0.01)
-                    F.push({ severity:'WARNING', message:`&SURF '${s.params.ID||'?'}' MATL_MASS_FRACTION sums to ${sum.toFixed(4)} — should be 1.0.`, hint:`MATL_MASS_FRACTION values are mass fractions and must sum to exactly 1.0.`, line:s.line, rule:'surf-matl-mass-fraction' });
+                    F.push({ severity:'WARNING', message:`&SURF '${s.params.ID||'?'}' : la somme des MATL_MASS_FRACTION vaut ${sum.toFixed(4)} — elle devrait valoir 1.0.`, hint:`Les MATL_MASS_FRACTION sont des fractions massiques et doivent totaliser exactement 1.0.`, line:s.line, rule:'surf-matl-mass-fraction' });
             }
         }
     }
@@ -1086,8 +1086,8 @@ _rule('missing-comma', (R, F) => {
             const nextId = (r._body.slice(m.index + m[0].length).match(/^([A-Za-z_]\w*)/) || [])[1] || '?';
             F.push({
                 severity: 'WARNING',
-                message: `&${r.name} line ${lineNum}: missing comma after ${m[1]} before '${nextId}='.`,
-                hint: `Add a comma after the value. FDS namelists are comma-delimited — a missing comma can cause the Fortran parser to silently misread '${nextId}'.`,
+                message: `&${r.name} ligne ${lineNum} : virgule manquante après ${m[1]} avant '${nextId}='.`,
+                hint: `Ajoutez une virgule après la valeur. Les namelists FDS sont séparées par des virgules ; sans elle, le lecteur Fortran peut mal lire '${nextId}' sans avertissement.`,
                 line: lineNum,
                 rule: 'missing-comma',
             });
@@ -1120,8 +1120,8 @@ _rule('unterminated-string', (R, F) => {
                 const lineOffset = (body.slice(0, start).match(/\n/g) || []).length;
                 F.push({
                     severity: 'ERROR',
-                    message: `&${r.name} line ${r._bodyLine + lineOffset}: unterminated string — opening ${q} has no matching closing quote.`,
-                    hint: `Add a closing ${q} to end the string value.`,
+                    message: `&${r.name} ligne ${r._bodyLine + lineOffset} : chaîne non fermée — le ${q} d’ouverture n’a pas de fermeture.`,
+                    hint: `Ajoutez un ${q} de fermeture à la fin de la valeur.`,
                     line: r._bodyLine + lineOffset,
                     rule: 'unterminated-string',
                 });
@@ -1141,8 +1141,8 @@ _rule('unterminated-string', (R, F) => {
                 const bare = prefix.trim();
                 F.push({
                     severity: 'ERROR',
-                    message: `&${r.name} line ${lineNum}: missing closing ${q} after '${bare}' — the ${am[1]} parameter was absorbed into the string value.`,
-                    hint: `Change ${q}${content}${q} to ${q}${bare}${q}. Without the closing quote, the Fortran parser reads '${am[1]}' as part of the string instead of a separate parameter.`,
+                    message: `&${r.name} ligne ${lineNum} : ${q} de fermeture manquant après '${bare}' — le paramètre ${am[1]} a été absorbé dans la chaîne.`,
+                    hint: `Remplacez ${q}${content}${q} par ${q}${bare}${q}. Sans le guillemet de fermeture, le lecteur Fortran lit '${am[1]}' comme une partie de la chaîne et non comme un paramètre.`,
                     line: lineNum,
                     rule: 'unterminated-string',
                 });
@@ -1159,7 +1159,7 @@ _rule('matl-zero-properties', (R, F) => {
     for (const m of R.filter(r => r.name === 'MATL')) {
         for (const [k, code] of [['DENSITY',253],['CONDUCTIVITY',254],['SPECIFIC_HEAT',255]]) {
             if (m.params[k] === 0)
-                F.push({ severity:'ERROR', message:`&MATL '${m.params.ID||'?'}' has ${k}=0 — FDS raises ERROR(${code}).`, hint:`${k} must be a positive value. Zero causes a division-by-zero or ill-conditioned heat transfer calculation.`, line:m.line, rule:'matl-zero-properties' });
+                F.push({ severity:'ERROR', message:`&MATL '${m.params.ID||'?'}' : ${k}=0 — FDS lève ERROR(${code}).`, hint:`${k} doit être strictement positif. Zéro provoque une division par zéro ou un calcul de transfert thermique mal conditionné.`, line:m.line, rule:'matl-zero-properties' });
         }
     }
 });
@@ -1171,7 +1171,7 @@ _rule('matl-heat-of-reaction', (R, F) => {
     for (const m of R.filter(r => r.name === 'MATL')) {
         const hor = m.params.HEAT_OF_REACTION;
         if (typeof hor === 'number' && hor <= 0)
-            F.push({ severity:'ERROR', message:`&MATL '${m.params.ID||'?'}' has HEAT_OF_REACTION=${hor} — must be positive (FDS raises ERROR(252)).`, hint:`HEAT_OF_REACTION is the energy absorbed during pyrolysis (kJ/kg). A zero or negative value is unphysical and causes FDS to abort.`, line:m.line, rule:'matl-heat-of-reaction' });
+            F.push({ severity:'ERROR', message:`&MATL '${m.params.ID||'?'}' : HEAT_OF_REACTION=${hor} — doit être positif (FDS lève ERROR(252)).`, hint:`HEAT_OF_REACTION est l’énergie absorbée par la pyrolyse (kJ/kg). Une valeur nulle ou négative n’a pas de sens physique et arrête FDS.`, line:m.line, rule:'matl-heat-of-reaction' });
     }
 });
 
@@ -1183,7 +1183,7 @@ _rule('surf-hrrpua-pyrolysis-conflict', (R, F) => {
         const hasHrrpua = s.params.HRRPUA != null || s.params.MLRPUA != null;
         const hasMatlId = _asList(s.params.MATL_ID).length > 0;
         if (hasHrrpua && hasMatlId)
-            F.push({ severity:'ERROR', message:`&SURF '${s.params.ID||'?'}' has HRRPUA/MLRPUA and MATL_ID — FDS raises ERROR(357).`, hint:`Use either HRRPUA/MLRPUA (prescribed fire rate) or MATL_ID (pyrolysis reactions), not both. They specify the combustion rate in conflicting ways.`, line:s.line, rule:'surf-hrrpua-pyrolysis-conflict' });
+            F.push({ severity:'ERROR', message:`&SURF '${s.params.ID||'?'}' : HRRPUA/MLRPUA et MATL_ID à la fois — FDS lève ERROR(357).`, hint:`Utilisez soit HRRPUA/MLRPUA (feu imposé), soit MATL_ID (réactions de pyrolyse), pas les deux : ils définissent la combustion de façon contradictoire.`, line:s.line, rule:'surf-hrrpua-pyrolysis-conflict' });
     }
 });
 
@@ -1194,7 +1194,7 @@ _rule('surf-mass-flux-negative', (R, F) => {
     for (const s of R.filter(r => r.name === 'SURF')) {
         const mf = s.params.MASS_FLUX;
         if (typeof mf === 'number' && mf < 0)
-            F.push({ severity:'ERROR', message:`&SURF '${s.params.ID||'?'}' has MASS_FLUX=${mf} — must be ≥ 0 (FDS raises ERROR(321)).`, hint:`MASS_FLUX is a non-negative mass flux (kg/m²/s) from the surface into the gas phase. For inflow use VEL or VOLUME_FLOW.`, line:s.line, rule:'surf-mass-flux-negative' });
+            F.push({ severity:'ERROR', message:`&SURF '${s.params.ID||'?'}' : MASS_FLUX=${mf} — doit être ≥ 0 (FDS lève ERROR(321)).`, hint:`MASS_FLUX est un flux massique positif (kg/m²/s) de la surface vers le gaz. Pour un apport d’air, utilisez VEL ou VOLUME_FLOW.`, line:s.line, rule:'surf-mass-flux-negative' });
     }
 });
 
@@ -1204,7 +1204,7 @@ _rule('surf-mass-flux-negative', (R, F) => {
 _rule('surf-thickness-required', (R, F) => {
     for (const s of R.filter(r => r.name === 'SURF')) {
         if (_asList(s.params.MATL_ID).length > 0 && s.params.THICKNESS == null)
-            F.push({ severity:'ERROR', message:`&SURF '${s.params.ID||'?'}' has MATL_ID but no THICKNESS — FDS raises ERROR(307).`, hint:`Add THICKNESS=<m> (one value per material layer). Without THICKNESS FDS cannot compute solid-phase heat conduction.`, line:s.line, rule:'surf-thickness-required' });
+            F.push({ severity:'ERROR', message:`&SURF '${s.params.ID||'?'}' : MATL_ID sans THICKNESS — FDS lève ERROR(307).`, hint:`Ajoutez THICKNESS=<m> (une valeur par couche). Sans THICKNESS, FDS ne peut pas calculer la conduction dans le solide.`, line:s.line, rule:'surf-thickness-required' });
     }
 });
 
@@ -1220,7 +1220,7 @@ _rule('ctrl-input-undefined', (R, F) => {
         for (const iid of _asList(c.params.INPUT_ID)) {
             const s = String(iid);
             if (s && !all.has(s))
-                F.push({ severity:'ERROR', message:`&CTRL '${c.params.ID||'?'}' INPUT_ID='${s}' is not defined as a DEVC or CTRL ID — FDS raises ERROR(916).`, hint:`Define &DEVC ID='${s}', ... / or &CTRL ID='${s}', ... / or fix the INPUT_ID spelling.`, line:c.line, rule:'ctrl-input-undefined' });
+                F.push({ severity:'ERROR', message:`&CTRL '${c.params.ID||'?'}' : INPUT_ID='${s}' n’est l’ID d’aucun DEVC ni CTRL — FDS lève ERROR(916).`, hint:`Définissez &DEVC ID='${s}', ... / ou &CTRL ID='${s}', ... / ou corrigez l’orthographe de INPUT_ID.`, line:c.line, rule:'ctrl-input-undefined' });
         }
     }
 });
@@ -1234,7 +1234,7 @@ _rule('ctrl-no-inputs', (R, F) => {
         const ft = String(c.params.FUNCTION_TYPE || '').toUpperCase();
         if (!NEEDS_INPUT.has(ft)) continue;
         if (!c.params.INPUT_ID)
-            F.push({ severity:'WARNING', message:`&CTRL '${c.params.ID||'?'}' FUNCTION_TYPE='${c.params.FUNCTION_TYPE}' has no INPUT_ID — FDS raises ERROR(905).`, hint:`Add INPUT_ID='<devc_or_ctrl_id>' to link this controller to a sensor or another controller.`, line:c.line, rule:'ctrl-no-inputs' });
+            F.push({ severity:'WARNING', message:`&CTRL '${c.params.ID||'?'}' FUNCTION_TYPE='${c.params.FUNCTION_TYPE}' sans INPUT_ID — FDS lève ERROR(905).`, hint:`Ajoutez INPUT_ID='<id_devc_ou_ctrl>' pour relier ce contrôleur à un capteur ou à un autre contrôleur.`, line:c.line, rule:'ctrl-no-inputs' });
     }
 });
 
@@ -1252,7 +1252,7 @@ _rule('hole-no-obst', (R, F) => {
         const xb = h.params.XB;
         if (!Array.isArray(xb) || xb.length !== 6) continue;
         if (!obsts.some(o => overlaps(xb, o)))
-            F.push({ severity:'WARNING', message:`&HOLE at line ${h.line} XB=(${xb.join(',')}) does not overlap any &OBST — it will have no effect.`, hint:`A HOLE only carves openings in existing OBSTructions. If no OBST intersects it, FDS silently ignores it. Check the coordinates.`, line:h.line, rule:'hole-no-obst' });
+            F.push({ severity:'WARNING', message:`&HOLE ligne ${h.line} : XB=(${xb.join(',')}) ne recoupe aucune &OBST — sans effet.`, hint:`Un HOLE ne fait qu’évider des OBST existantes. S’il n’en recoupe aucune, FDS l’ignore. Vérifiez les coordonnées.`, line:h.line, rule:'hole-no-obst' });
     }
 });
 
@@ -1263,7 +1263,7 @@ _rule('ctrl-devc-conflict', (R, F) => {
     for (const r of R) {
         if (!['VENT','OBST','HOLE'].includes(r.name)) continue;
         if (r.params.CTRL_ID != null && r.params.DEVC_ID != null)
-            F.push({ severity:'ERROR', message:`&${r.name} at line ${r.line} has both CTRL_ID='${r.params.CTRL_ID}' and DEVC_ID='${r.params.DEVC_ID}' — FDS raises ERROR(393).`, hint:`Use only one activation mechanism: CTRL_ID (logic controller) or DEVC_ID (device sensor), not both.`, line:r.line, rule:'ctrl-devc-conflict' });
+            F.push({ severity:'ERROR', message:`&${r.name} ligne ${r.line} : CTRL_ID='${r.params.CTRL_ID}' et DEVC_ID='${r.params.DEVC_ID}' à la fois — FDS lève ERROR(393).`, hint:`N’utilisez qu’un seul déclencheur : CTRL_ID (contrôleur logique) ou DEVC_ID (capteur), pas les deux.`, line:r.line, rule:'ctrl-devc-conflict' });
     }
 });
 
@@ -1273,7 +1273,7 @@ _rule('ctrl-devc-conflict', (R, F) => {
 _rule('init-fraction-conflict', (R, F) => {
     for (const r of R.filter(r => r.name === 'INIT')) {
         if (r.params.MASS_FRACTION != null && r.params.VOLUME_FRACTION != null)
-            F.push({ severity:'ERROR', message:`&INIT at line ${r.line} has both MASS_FRACTION and VOLUME_FRACTION — FDS raises ERROR(842).`, hint:`Use MASS_FRACTION for mass-based or VOLUME_FRACTION for volume-based species initialisation. They are mutually exclusive.`, line:r.line, rule:'init-fraction-conflict' });
+            F.push({ severity:'ERROR', message:`&INIT ligne ${r.line} : MASS_FRACTION et VOLUME_FRACTION à la fois — FDS lève ERROR(842).`, hint:`Utilisez MASS_FRACTION (base massique) ou VOLUME_FRACTION (base volumique) pour initialiser les espèces : ils s’excluent mutuellement.`, line:r.line, rule:'init-fraction-conflict' });
     }
 });
 
@@ -1287,10 +1287,10 @@ _rule('mesh-cylindrical', (R, F) => {
     for (const m of R.filter(r => r.name === 'MESH')) {
         const xb = m.params.XB;
         if (Array.isArray(xb) && xb.length === 6 && xb[0] < -1e-6)
-            F.push({ severity:'ERROR', message:`&MESH at line ${m.line} XB(1)=${xb[0]} < 0 in cylindrical coordinates — FDS raises ERROR(120).`, hint:`The first XB coordinate is the radial axis and cannot be negative in cylindrical mode.`, line:m.line, rule:'mesh-cylindrical' });
+            F.push({ severity:'ERROR', message:`&MESH ligne ${m.line} : XB(1)=${xb[0]} < 0 en coordonnées cylindriques — FDS lève ERROR(120).`, hint:`La première coordonnée XB est l’axe radial et ne peut pas être négative en mode cylindrique.`, line:m.line, rule:'mesh-cylindrical' });
         const ijk = m.params.IJK;
         if (Array.isArray(ijk) && ijk.length === 3 && ijk[1] !== 1)
-            F.push({ severity:'ERROR', message:`&MESH at line ${m.line} IJK(2)=${ijk[1]} ≠ 1 in cylindrical coordinates — FDS raises ERROR(121).`, hint:`In cylindrical mode the azimuthal dimension (J) must be 1. Set IJK=I,1,K.`, line:m.line, rule:'mesh-cylindrical' });
+            F.push({ severity:'ERROR', message:`&MESH ligne ${m.line} : IJK(2)=${ijk[1]} ≠ 1 en coordonnées cylindriques — FDS lève ERROR(121).`, hint:`En mode cylindrique, la dimension azimutale (J) doit valoir 1. Utilisez IJK=I,1,K.`, line:m.line, rule:'mesh-cylindrical' });
     }
 });
 
@@ -1302,7 +1302,7 @@ _rule('devc-quantity-range', (R, F) => {
         const qr = d.params.QUANTITY_RANGE;
         if (!Array.isArray(qr) || qr.length < 2) continue;
         if (typeof qr[0] === 'number' && typeof qr[1] === 'number' && qr[1] <= qr[0])
-            F.push({ severity:'ERROR', message:`&DEVC '${d.params.ID||'?'}' QUANTITY_RANGE=(${qr[0]},${qr[1]}): upper bound must be > lower bound — FDS raises ERROR(881).`, hint:`QUANTITY_RANGE(1) is the lower threshold and QUANTITY_RANGE(2) is the upper. The upper must be strictly greater than the lower.`, line:d.line, rule:'devc-quantity-range' });
+            F.push({ severity:'ERROR', message:`&DEVC '${d.params.ID||'?'}' QUANTITY_RANGE=(${qr[0]},${qr[1]}) : la borne haute doit être > à la borne basse — FDS lève ERROR(881).`, hint:`QUANTITY_RANGE(1) est le seuil bas et QUANTITY_RANGE(2) le seuil haut. Le haut doit être strictement supérieur au bas.`, line:d.line, rule:'devc-quantity-range' });
     }
 });
 
@@ -1314,7 +1314,7 @@ function fdsLint(text) {
     for (const [name, fn] of _LINT_RULES) {
         try { fn(records, findings); }
         catch (e) {
-            findings.push({ severity:'WARNING', message:`Internal: rule '${name}' failed — ${e.message}`, hint:'', line:0, rule:name });
+            findings.push({ severity:'WARNING', message:`Erreur interne : la règle '${name}' a échoué — ${e.message}`, hint:'', line:0, rule:name });
         }
     }
     findings.sort((a, b) => (a.line || 999999) - (b.line || 999999) || a.severity.localeCompare(b.severity));

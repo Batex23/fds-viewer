@@ -84,6 +84,19 @@ function triangulatePolygon(polyVerts3D, normal) {
     return triangles;
 }
 
+// Layout-independent key (AZERTY, QWERTZ…): letter and digit keys are read
+// from their physical position (e.code), so Z Q S D on an AZERTY keyboard
+// drive the camera exactly like W A S D on QWERTY. Other keys keep e.key.
+function physicalKey(e) {
+    const c = e.code || '';
+    let m = c.match(/^Key([A-Z])$/);
+    if (m) return m[1].toLowerCase();
+    m = c.match(/^(?:Digit|Numpad)(\d)$/);
+    if (m) return m[1];
+    return e.key;
+}
+window.physicalKey = physicalKey;
+
 class FDSViewer {
     constructor(container) {
         this.container = container;
@@ -104,13 +117,13 @@ class FDSViewer {
             const t = e.target;
             if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'
                       || t.tagName === 'SELECT' || t.isContentEditable)) return;
-            this._keysPressed[e.key] = true;
+            this._keysPressed[physicalKey(e)] = true;
         };
         // keyup is NOT gated -- always release the key state, otherwise a key
         // pressed in the viewport then released after focusing an input would
         // stick "pressed" forever and the camera would drift.
         this._onKeyUp = (e) => {
-            this._keysPressed[e.key] = false;
+            this._keysPressed[physicalKey(e)] = false;
         };
         // Also drop all pressed keys when focus moves to an input (covers
         // mouse-click focus changes that bypass keydown entirely).
@@ -216,7 +229,7 @@ class FDSViewer {
     _init() {
         // Scene
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x1a1a2e);
+        this.scene.background = new THREE.Color(0x0d1736);
 
         // Renderer — request WebGL2 for DataTexture3D / volume rendering support
         const _canvas2 = document.createElement('canvas');
@@ -563,7 +576,7 @@ class FDSViewer {
                     }
                 }
                 const status = document.getElementById((this.walkHudId || 'walk-hud') + '-status');
-                if (status) status.textContent = 'No surface there — try clicking on an obstruction or the floor.';
+                if (status) status.textContent = 'Aucune surface ici : cliquez sur une obstruction ou sur le sol.';
             }
             return;
         }
@@ -2465,7 +2478,8 @@ class FDSViewer {
         // Key listeners — capture key state in walkKeys map.
         this._walkOnKeyDown = (e) => {
             if (!this.walkMode) return;
-            const key = e.key === ' ' ? ' ' : e.key.toLowerCase();
+            const pk = physicalKey(e);
+            const key = pk === ' ' ? ' ' : String(pk).toLowerCase();
             this.walkKeys[key] = true;
             if (key === 'shift') this.walkKeys.shift = true;
             // Swallow nav keys so the page doesn't scroll while walking
@@ -2474,7 +2488,8 @@ class FDSViewer {
             }
         };
         this._walkOnKeyUp = (e) => {
-            const key = e.key === ' ' ? ' ' : e.key.toLowerCase();
+            const pk = physicalKey(e);
+            const key = pk === ' ' ? ' ' : String(pk).toLowerCase();
             this.walkKeys[key] = false;
             if (key === 'shift') this.walkKeys.shift = false;
         };
@@ -2487,7 +2502,7 @@ class FDSViewer {
             hud.style.display = 'flex';
             hud.classList.remove('locked');
             const status = document.getElementById(this.walkHudId + '-status');
-            if (status) status.textContent = 'Click any horizontal surface to place yourself.';
+            if (status) status.textContent = 'Cliquez sur une surface horizontale pour vous y placer.';
         }
     }
 

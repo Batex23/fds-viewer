@@ -135,7 +135,7 @@
                     summary.status = 'failure';
                     findings.push({
                         severity: 'ERROR',
-                        message: 'FDS stopped: ' + msg,
+                        message: 'FDS arrêté : ' + msg,
                         hint: null,
                         line: 0, lineEnd: 0,
                         rule: 'FDS STOP',

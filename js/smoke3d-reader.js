@@ -1,14 +1,14 @@
 class Smoke3DReader {
     static parse(arrayBuffer, fileName) {
         if (!(arrayBuffer instanceof ArrayBuffer) || arrayBuffer.byteLength < 64) {
-            throw new Error(fileName + " is too small to be a Smoke3D file.");
+            throw new Error(fileName + " est trop petit pour être un fichier Smoke3D.");
         }
 
         const littleEndian = this._detectEndian(arrayBuffer);
         const cursor = new Smoke3DRecordCursor(arrayBuffer, littleEndian);
         const headerRecord = cursor.readRecord();
         if (headerRecord.length < 32) {
-            throw new Error(fileName + " has an invalid Smoke3D header.");
+            throw new Error(fileName + " a un en-tête Smoke3D invalide.");
         }
 
         const view = new DataView(arrayBuffer, headerRecord.payloadOffset, headerRecord.length);
@@ -40,7 +40,7 @@ class Smoke3DReader {
 
                 const countsRecord = cursor.readRecord();
                 if (countsRecord.length < 8) {
-                    throw new Error(fileName + " has an invalid Smoke3D frame count record.");
+                    throw new Error(fileName + " a un enregistrement de pas de temps Smoke3D invalide.");
                 }
 
                 const countsView = new DataView(arrayBuffer, countsRecord.payloadOffset, countsRecord.length);
@@ -54,7 +54,7 @@ class Smoke3DReader {
                     dataOffset = dataRecord.payloadOffset;
                     dataLength = dataRecord.length;
                     if (dataLength !== outChars) {
-                        throw new Error(fileName + " has a Smoke3D frame length mismatch.");
+                        throw new Error(fileName + " a une longueur de pas de temps Smoke3D incohérente.");
                     }
                 }
 
@@ -73,7 +73,7 @@ class Smoke3DReader {
         }
 
         if (!frames.length) {
-            throw new Error(fileName + " contains no Smoke3D frames.");
+            throw new Error(fileName + " ne contient aucun pas de temps Smoke3D.");
         }
 
         const dataset = new Smoke3DDataset(arrayBuffer, littleEndian, header, frames, fileName);
@@ -87,7 +87,7 @@ class Smoke3DReader {
         const big = view.getUint32(0, false);
         if (this._looksLikeHeader(arrayBuffer, little, true)) return true;
         if (this._looksLikeHeader(arrayBuffer, big, false)) return false;
-        throw new Error("Could not detect Smoke3D byte order.");
+        throw new Error("Impossible de déterminer l’ordre des octets du fichier Smoke3D.");
     }
 
     static _looksLikeHeader(arrayBuffer, length, littleEndian) {
@@ -110,7 +110,7 @@ class Smoke3DDataset {
 
     decompressFrame(frameIndex) {
         const frame = this.frames[frameIndex];
-        if (!frame) throw new Error("Smoke3D frame index out of range.");
+        if (!frame) throw new Error("Indice de pas de temps Smoke3D hors limites.");
 
         const output = new Uint8Array(frame.inChars);
         if (frame.outChars <= 0) return output;
@@ -135,7 +135,7 @@ class Smoke3DDataset {
         }
 
         if (dst !== output.length) {
-            throw new Error(this.fileName + " frame " + frameIndex + " expanded to " + dst + " bytes, expected " + output.length + ".");
+            throw new Error(this.fileName + " pas de temps " + frameIndex + " décompressé en " + dst + " octets au lieu de " + output.length + ".");
         }
 
         return output;
@@ -156,7 +156,7 @@ class Smoke3DRecordCursor {
 
     readRecord() {
         if (this.offset + 8 > this.arrayBuffer.byteLength) {
-            throw new Error("Unexpected end of Smoke3D file.");
+            throw new Error("Fin inattendue du fichier Smoke3D.");
         }
 
         const length = this.view.getUint32(this.offset, this.littleEndian);
@@ -164,12 +164,12 @@ class Smoke3DRecordCursor {
         const payloadEnd = payloadOffset + length;
         const trailerOffset = payloadEnd;
         if (length <= 0 || trailerOffset + 4 > this.arrayBuffer.byteLength) {
-            throw new Error("Invalid Smoke3D record length at byte " + this.offset + ".");
+            throw new Error("Longueur d’enregistrement Smoke3D invalide à l’octet " + this.offset + ".");
         }
 
         const trailer = this.view.getUint32(trailerOffset, this.littleEndian);
         if (trailer !== length) {
-            throw new Error("Smoke3D Fortran record marker mismatch at byte " + this.offset + ".");
+            throw new Error("Marqueur d’enregistrement Fortran Smoke3D incohérent à l’octet " + this.offset + ".");
         }
 
         this.offset = trailerOffset + 4;
@@ -181,5 +181,5 @@ function readRealRecord(arrayBuffer, record, littleEndian) {
     const view = new DataView(arrayBuffer, record.payloadOffset, record.length);
     if (record.length === 4) return view.getFloat32(0, littleEndian);
     if (record.length === 8) return view.getFloat64(0, littleEndian);
-    throw new Error("Unexpected Smoke3D time record length: " + record.length + ".");
+    throw new Error("Longueur inattendue de l’enregistrement de temps Smoke3D : " + record.length + ".");
 }

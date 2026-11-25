@@ -1,3 +1,19 @@
+# Visionneuse FDS — Sapeurs-Pompiers de la Gironde
+
+Version adaptée pour un usage interne au SDIS 33 : interface en français,
+habillage selon la charte graphique 2025, et partage de simulations par lien
+(dossier de résultats FDS hébergé sur Google Drive, `?drive=<id du dossier>`).
+
+- Site : https://batex23.github.io/fds-viewer/
+- Clé API Google Drive : `js/config.js` (restreinte au site et à l’API Drive)
+- Polices auto-hébergées (SIL OFL) : `assets/fonts/`
+- Logo et charte : propriété des Sapeurs-Pompiers de la Gironde
+
+Basé sur [FDS Viewer](https://github.com/ProfRino/fds-viewer) du Prof. Rino
+Lovreglio (Massey University), sous licence MIT — notice d’origine ci-dessous.
+
+---
+
 # FDS Viewer
 
 [![Listed on FDS Third-Party Tools](https://img.shields.io/badge/Listed%20on-FDS%20Third--Party%20Tools-1f5b96?logo=github&logoColor=white)](https://github.com/firemodels/fds/wiki/Third-Party-Tools)

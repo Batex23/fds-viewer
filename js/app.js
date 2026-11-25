@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dropZone.style.display = '';
             container.style.display = '';
             document.body.classList.remove('has-data');
-            alert('Could not parse "' + (filename || 'file') + '":\n' + err.message);
+            alert('Impossible de lire « ' + (filename || 'fichier') + ' » :\n' + err.message);
         }
     }
 
@@ -168,11 +168,11 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(text => parseAndLoad(text, urlFile.split('/').pop()))
             .catch(err => {
                 console.error('URL-load failed for ' + urlFile, err);
-                alert('Could not load ' + urlFile + '\n' + err.message +
-                      '\n\nThis page must be served over HTTP for fetch() to work.\n' +
-                      'Run a static server from the repo root, e.g.:\n' +
+                alert('Impossible de charger ' + urlFile + '\n' + err.message +
+                      '\n\nLa page doit être servie en HTTP pour que fetch() fonctionne.\n' +
+                      'Lancez un serveur local depuis le dossier du site, par exemple :\n' +
                       '    python -m http.server 8765\n' +
-                      'then open http://localhost:8765/?file=' + urlFile);
+                      'puis ouvrez http://localhost:8765/?file=' + urlFile);
             });
     }
 
@@ -185,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof SAMPLE_FDS_TEXT === 'string') {
             parseAndLoad(SAMPLE_FDS_TEXT, 'sample_room_fire.fds');
         } else {
-            alert('Bundled sample is missing. Make sure js/sample-data.js is loaded.');
+            alert('Exemple intégré introuvable : vérifiez que js/sample-data.js est chargé.');
         }
     });
 
@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const refresh = () => {
             const ortho = viewer.getProjection() === 'orthographic';
             projBtn.classList.toggle('is-ortho', ortho);
-            projBtn.title = ortho ? 'Switch to perspective projection' : 'Switch to orthographic projection';
+            projBtn.title = ortho ? 'Passer en projection perspective' : 'Passer en projection orthographique';
             const lbl = projBtn.querySelector('.proj-toggle-label');
             if (lbl) lbl.textContent = ortho ? 'Ortho' : 'Persp';
         };
@@ -274,16 +274,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function syncWalkBtn() {
         if (!walkBtn) return;
         if (viewer.walkMode) {
-            walkBtn.textContent = 'Exit walk mode';
+            walkBtn.textContent = 'Quitter la visite';
             walkBtn.classList.add('active');
         } else {
-            walkBtn.textContent = 'Enter walk mode';
+            walkBtn.textContent = 'Lancer la visite';
             walkBtn.classList.remove('active');
         }
     }
 
     if (walkBtn) walkBtn.addEventListener('click', () => {
-        if (!currentData) { alert('Load an FDS file first.'); return; }
+        if (!currentData) { alert('Chargez d’abord un fichier FDS.'); return; }
         if (viewer.walkMode) viewer.exitWalkMode();
         else viewer.enterWalkMode();
         syncWalkBtn();
@@ -372,7 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
             msg.className = 'fp-tab-guard-toast';
             document.body.appendChild(msg);
         }
-        msg.textContent = '⚠ Exit edit mode first — click View to return to read-only';
+        msg.textContent = '⚠ Quittez d’abord le mode édition (bouton Lecture seule)';
         msg.classList.add('visible');
         clearTimeout(msg._t);
         msg._t = setTimeout(() => msg.classList.remove('visible'), 2800);
@@ -441,7 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         infoPanel.classList.add('visible');
-        infoTitle.textContent = detail.type || 'Selected Object';
+        infoTitle.textContent = detail.type || 'Objet sélectionné';
 
         let html = '';
 
@@ -450,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (detail.xb) {
             html += `<div class="info-item"><span class="info-label">XB</span><code class="info-xb">${detail.xb.map(v => v.toFixed(3)).join(', ')}</code></div>`;
             const dx = Math.abs(detail.xb[1]-detail.xb[0]), dy = Math.abs(detail.xb[3]-detail.xb[2]), dz = Math.abs(detail.xb[5]-detail.xb[4]);
-            html += infoRow('Size', `${dx.toFixed(3)} × ${dy.toFixed(3)} × ${dz.toFixed(3)} m`);
+            html += infoRow('Dimensions', `${dx.toFixed(3)} × ${dy.toFixed(3)} × ${dz.toFixed(3)} m`);
         }
 
         if (detail.ijk) {
@@ -461,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     (Math.abs(detail.xb[3]-detail.xb[2])/detail.ijk[1]).toFixed(4),
                     (Math.abs(detail.xb[5]-detail.xb[4])/detail.ijk[2]).toFixed(4),
                 ];
-                html += infoRow('Cell', cs.join(' × ') + ' m');
+                html += infoRow('Cellule', cs.join(' × ') + ' m');
             }
         }
 
@@ -470,12 +470,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (detail.quantity)     html += infoRow('QUANTITY', detail.quantity);
         if (detail.prop_id)      html += infoRow('PROP_ID',  detail.prop_id);
         if (detail.part_id)      html += infoRow('PART_ID',  detail.part_id);
-        if (detail.subtype)      html += infoRow('Subtype',  detail.subtype);
-        if (detail.sphere_origin) html += `<div class="info-item"><span class="info-label">Origin</span><code class="info-xb">${detail.sphere_origin.map(v=>v.toFixed(3)).join(', ')}</code></div>`;
-        if (detail.sphere_radius) html += infoRow('Radius',  detail.sphere_radius.toFixed(3) + ' m');
+        if (detail.subtype)      html += infoRow('Sous-type',  detail.subtype);
+        if (detail.sphere_origin) html += `<div class="info-item"><span class="info-label">Origine</span><code class="info-xb">${detail.sphere_origin.map(v=>v.toFixed(3)).join(', ')}</code></div>`;
+        if (detail.sphere_radius) html += infoRow('Rayon',  detail.sphere_radius.toFixed(3) + ' m');
         if (detail.hrrpuv)       html += infoRow('HRRPUV',  detail.hrrpuv + ' kW/m³');
-        if (detail.ambient != null) html += infoRow('Ambient', detail.ambient ? 'Yes' : 'No');
-        if (detail.node_id)      html += infoRow('Nodes',   (Array.isArray(detail.node_id) ? detail.node_id : [detail.node_id]).join(' → '));
+        if (detail.ambient != null) html += infoRow('Ambiant', detail.ambient ? 'Oui' : 'Non');
+        if (detail.node_id)      html += infoRow('Nœuds',   (Array.isArray(detail.node_id) ? detail.node_id : [detail.node_id]).join(' → '));
         if (detail.vent_id)      html += infoRow('VENT_ID', detail.vent_id);
         if (detail.pbx != null)  html += infoRow('PBX',     detail.pbx);
         if (detail.pby != null)  html += infoRow('PBY',     detail.pby);
@@ -483,7 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const raw = getRawFDS(detail);
         if (raw && typeof highlightFds === 'function') {
-            html += `<details class="info-fds-code"><summary>FDS Code</summary><pre class="fp-code-block info-code-block">${highlightFds(raw)}</pre></details>`;
+            html += `<details class="info-fds-code"><summary>Code FDS</summary><pre class="fp-code-block info-code-block">${highlightFds(raw)}</pre></details>`;
         }
 
         panel.innerHTML = html;
@@ -521,7 +521,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Default scene backgrounds for each theme (match a swatch in the
     // sidebar's Background row so the 'active' indicator can follow).
-    const THEME_BG = { dark: '#1a1a2e', light: '#e8e8e8' };
+    const THEME_BG = { dark: '#0d1736', light: '#e8e8e8' };
 
     function applyThemedSceneBackground(theme) {
         const bg = THEME_BG[theme] || THEME_BG.dark;
@@ -541,11 +541,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (theme === 'light') {
             document.documentElement.setAttribute('data-theme', 'light');
             themeIcon.innerHTML = SUN_SVG;
-            themeBtn.title = 'Switch to dark theme';
+            themeBtn.title = 'Passer au thème sombre';
         } else {
             document.documentElement.removeAttribute('data-theme');
             themeIcon.innerHTML = MOON_SVG;
-            themeBtn.title = 'Switch to light theme';
+            themeBtn.title = 'Passer au thème clair';
         }
         applyThemedSceneBackground(theme === 'light' ? 'light' : 'dark');
     }
@@ -705,7 +705,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const t = e.target;
         if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
 
-        switch (e.key) {
+        const pk = (typeof physicalKey === 'function') ? physicalKey(e) : e.key;
+        switch (pk) {
             case '1': viewer.setView('front'); break;
             case '2': viewer.setView('back'); break;
             case '3': viewer.setView('left'); break;

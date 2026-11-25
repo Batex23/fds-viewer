@@ -18,7 +18,7 @@ class FdsSliceDataset {
     getFrameData(frameIndex) {
         const frame = this.frames[frameIndex];
         if (!frame) {
-            throw new Error("Frame index out of range.");
+            throw new Error("Indice de pas de temps hors limites.");
         }
 
         const values = new Float32Array(this.valueCount);
@@ -33,7 +33,7 @@ class FdsSliceDataset {
                 values[i] = view.getFloat64(i * 8, this.littleEndian);
             }
         } else {
-            throw new Error("Unsupported slice value width: " + frame.bytesPerValue + " bytes.");
+            throw new Error("Taille de valeur slice non prise en charge : " + frame.bytesPerValue + " octets.");
         }
 
         return values;
@@ -43,7 +43,7 @@ class FdsSliceDataset {
 class FdsSliceReader {
     static parseHeader(arrayBuffer) {
         if (!(arrayBuffer instanceof ArrayBuffer) || arrayBuffer.byteLength < 64) {
-            throw new Error("The file is too small to contain an FDS slice header.");
+            throw new Error("Le fichier est trop petit pour contenir un en-tête slice FDS.");
         }
 
         const littleEndian = this._detectEndian(arrayBuffer);
@@ -68,7 +68,7 @@ class FdsSliceReader {
 
     static parse(arrayBuffer) {
         if (!(arrayBuffer instanceof ArrayBuffer) || arrayBuffer.byteLength < 64) {
-            throw new Error("The file is too small to be an FDS slice file.");
+            throw new Error("Le fichier est trop petit pour être un fichier slice FDS.");
         }
 
         const littleEndian = this._detectEndian(arrayBuffer);
@@ -85,12 +85,12 @@ class FdsSliceReader {
         ];
 
         if (dims.some(d => !Number.isFinite(d) || d <= 0)) {
-            throw new Error("The slice index bounds are invalid.");
+            throw new Error("Les bornes d’indices du slice sont invalides.");
         }
 
         const valueCount = dims[0] * dims[1] * dims[2];
         if (valueCount > 12000000) {
-            throw new Error("This slice contains more than 12 million values per frame.");
+            throw new Error("Ce slice contient plus de 12 millions de valeurs par pas de temps.");
         }
 
         const frames = [];
@@ -106,8 +106,8 @@ class FdsSliceReader {
             const bytesPerValue = dataRecord.length / valueCount;
             if (!Number.isInteger(bytesPerValue) || (bytesPerValue !== 4 && bytesPerValue !== 8)) {
                 throw new Error(
-                    "Unexpected data record length. Expected " +
-                    valueCount + " float values, received " + dataRecord.length + " bytes."
+                    "Longueur de données inattendue : " +
+                    valueCount + " valeurs attendues, reçu " + dataRecord.length + " octets."
                 );
             }
 
@@ -120,7 +120,7 @@ class FdsSliceReader {
         }
 
         if (frames.length === 0) {
-            throw new Error("No time frames were found in the slice file.");
+            throw new Error("Aucun pas de temps trouvé dans le fichier slice.");
         }
 
         return new FdsSliceDataset(
@@ -140,7 +140,7 @@ class FdsSliceReader {
         if (this._looksLikeFirstRecord(arrayBuffer, little, true)) return true;
         if (this._looksLikeFirstRecord(arrayBuffer, big, false)) return false;
 
-        throw new Error("Could not detect FDS slice record byte order.");
+        throw new Error("Impossible de déterminer l’ordre des octets du fichier slice.");
     }
 
     static _looksLikeFirstRecord(arrayBuffer, length, littleEndian) {
@@ -159,7 +159,7 @@ class FdsSliceReader {
 
     static _readIndices(record, arrayBuffer, littleEndian) {
         if (record.length < 24) {
-            throw new Error("The slice index record is too short.");
+            throw new Error("L’enregistrement d’indices du slice est trop court.");
         }
 
         const view = new DataView(arrayBuffer, record.payloadOffset, record.length);
@@ -177,7 +177,7 @@ class FdsSliceReader {
         const view = new DataView(arrayBuffer, record.payloadOffset, record.length);
         if (record.length === 4) return view.getFloat32(0, littleEndian);
         if (record.length === 8) return view.getFloat64(0, littleEndian);
-        throw new Error("Unexpected time record length: " + record.length + " bytes.");
+        throw new Error("Longueur inattendue de l’enregistrement de temps : " + record.length + " octets.");
     }
 }
 
@@ -195,7 +195,7 @@ class FortranRecordCursor {
 
     readRecord() {
         if (this.offset + 8 > this.arrayBuffer.byteLength) {
-            throw new Error("Unexpected end of file while reading a Fortran record.");
+            throw new Error("Fin de fichier inattendue pendant la lecture d’un enregistrement Fortran.");
         }
 
         const length = this.view.getUint32(this.offset, this.littleEndian);
@@ -204,12 +204,12 @@ class FortranRecordCursor {
         const trailerOffset = payloadEnd;
 
         if (length <= 0 || trailerOffset + 4 > this.arrayBuffer.byteLength) {
-            throw new Error("Invalid Fortran record length at byte " + this.offset + ".");
+            throw new Error("Longueur d’enregistrement Fortran invalide à l’octet " + this.offset + ".");
         }
 
         const trailer = this.view.getUint32(trailerOffset, this.littleEndian);
         if (trailer !== length) {
-            throw new Error("Fortran record marker mismatch at byte " + this.offset + ".");
+            throw new Error("Marqueur d’enregistrement Fortran incohérent à l’octet " + this.offset + ".");
         }
 
         this.offset = trailerOffset + 4;

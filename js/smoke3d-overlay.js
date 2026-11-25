@@ -111,8 +111,8 @@
             for (let ei = 0; ei < entries.length; ei++) frameMaps[ei].push(maps[ei].get(key));
         }
         for (let ei = 0; ei < entries.length; ei++) entries[ei].frameMap = frameMaps[ei];
-        if (!frames.length) throw new Error('Smoke3D mesh files have no common timestamps.');
-        return { frames, note: 'Aligned ' + frames.length + ' common frame(s).' };
+        if (!frames.length) throw new Error('Les fichiers Smoke3D des maillages n’ont aucun pas de temps commun.');
+        return { frames, note: frames.length + ' pas de temps communs alignés.' };
     }
 
     function alignGroupsByTime(groups) {
@@ -129,9 +129,9 @@
             frames.push(groups[0].frames[i]);
             for (let gi = 0; gi < groups.length; gi++) groupMaps[gi].push(maps[gi].get(key));
         }
-        if (!frames.length) throw new Error('Selected Smoke3D quantities have no common timestamps.');
+        if (!frames.length) throw new Error('Les grandeurs Smoke3D choisies n’ont aucun pas de temps commun.');
         for (let gi = 0; gi < groups.length; gi++) groups[gi].activeFrameMap = groupMaps[gi];
-        return { frames, note: 'Aligned to ' + frames.length + ' common timestamp(s).' };
+        return { frames, note: frames.length + ' pas de temps communs alignés.' };
     }
 
     // ── Smoke3DOverlay class ─────────────────────────────────────────────
@@ -190,7 +190,7 @@
             this._reset();
             this.fileMap = new Map(files.map(f => [f.name.toLowerCase(), f]));
             const smvFile = files.find(f => /\.smv$/i.test(f.name));
-            if (!smvFile) throw new Error('No .smv file in selected folder.');
+            if (!smvFile) throw new Error('Aucun fichier .smv dans le dossier choisi.');
             const smvText = await smvFile.text();
             this.smvContext = parseSmv(smvText, smvFile.name);
 
@@ -198,7 +198,7 @@
                 const fdsFile = files.find(f => /\.fds$/i.test(f.name));
                 if (fdsFile && global._outputFdsMeshes) this.meshContext = global._outputFdsMeshes;
                 else if (fdsFile) this.meshContext = await this._meshesFromFds(fdsFile);
-                else throw new Error('SMV has no GRID/PDIM and no .fds file was found.');
+                else throw new Error('Le .smv ne contient pas de GRID/PDIM et aucun fichier .fds n’a été trouvé.');
             } else {
                 this.meshContext = this.smvContext.meshes;
             }
@@ -236,7 +236,7 @@
                 meshes.push({ index: meshes.length + 1, id: 'mesh_' + (meshes.length + 1), ijk, xb, source: 'fds' });
                 re.lastIndex = end + 1;
             }
-            if (!meshes.length) throw new Error('No usable &MESH records in .fds file.');
+            if (!meshes.length) throw new Error('Aucune ligne &MESH exploitable dans le fichier .fds.');
             return meshes;
         }
 
@@ -252,7 +252,7 @@
 
         async loadActiveQuantities(setStatus) {
             const keys = this._modeKeys();
-            if (!keys.length) throw new Error('No quantity selected.');
+            if (!keys.length) throw new Error('Aucune grandeur sélectionnée.');
             // Generation token — if the user toggles quantities while a load
             // is in flight, the older call's result must NOT overwrite the
             // newer one's. Each call captures its generation and checks before
@@ -278,13 +278,13 @@
 
         async _loadGroup(key, setStatus) {
             const group = this.smvContext.groups.get(key);
-            if (!group) throw new Error('Group not found: ' + key);
+            if (!group) throw new Error('Groupe introuvable : ' + key);
             const entries = [];
             const truncated = [];
             for (let i = 0; i < group.entries.length; i++) {
                 const e = group.entries[i];
                 const file = this.fileMap.get(e.fileName.toLowerCase());
-                if (!file) throw new Error('Missing Smoke3D file: ' + e.fileName);
+                if (!file) throw new Error('Fichier Smoke3D manquant : ' + e.fileName);
                 if (setStatus) setStatus('Loading ' + e.fileName + ' (' + (i + 1) + ' of ' + group.entries.length + ')...');
                 const dataset = Smoke3DReader.parse(await file.arrayBuffer(), e.fileName);
                 if (dataset.truncatedAt != null) truncated.push(e.fileName);
@@ -293,7 +293,7 @@
             const alignment = alignEntryFrames(entries);
             let note = alignment.note;
             if (truncated.length) {
-                const suffix = ' Partial data: ' + truncated.join(', ') + ' truncated — frame count limited to common range.';
+                const suffix = ' Données partielles : ' + truncated.join(', ') + ' tronqué(s), nombre de pas de temps limité à la plage commune.';
                 note = note ? note + suffix : suffix.trim();
             }
             return {

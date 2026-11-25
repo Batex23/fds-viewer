@@ -92,7 +92,7 @@
         outputViewer = new FDSViewer(container);
         // Match the current theme's scene background (set by app.js).
         const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-        outputViewer.setBackground(isLight ? '#e8e8e8' : '#1a1a2e');
+        outputViewer.setBackground(isLight ? '#e8e8e8' : '#0d1736');
         // Greyscale is applied after every loadData
         // Start polling FPS for the readout — once per ~250 ms is enough.
         startFpsPolling();
@@ -263,15 +263,15 @@
         function syncOutputWalkBtn() {
             if (!walkBtn) return;
             if (viewer.walkMode) {
-                walkBtn.textContent = 'Exit walk mode';
+                walkBtn.textContent = 'Quitter la visite';
                 walkBtn.classList.add('active');
             } else {
-                walkBtn.textContent = 'Enter walk mode';
+                walkBtn.textContent = 'Lancer la visite';
                 walkBtn.classList.remove('active');
             }
         }
         if (walkBtn) walkBtn.addEventListener('click', () => {
-            if (!lastData) { alert('Load an FDS file first.'); return; }
+            if (!lastData) { alert('Chargez d’abord un fichier FDS.'); return; }
             if (viewer.walkMode) viewer.exitWalkMode();
             else viewer.enterWalkMode('output-walk-hud');
             syncOutputWalkBtn();
@@ -327,7 +327,7 @@
             const refresh = () => {
                 const ortho = viewer.getProjection() === 'orthographic';
                 projBtn.classList.toggle('is-ortho', ortho);
-                projBtn.title = ortho ? 'Switch to perspective projection' : 'Switch to orthographic projection';
+                projBtn.title = ortho ? 'Passer en projection perspective' : 'Passer en projection orthographique';
                 const lbl = projBtn.querySelector('.proj-toggle-label');
                 if (lbl) lbl.textContent = ortho ? 'Ortho' : 'Persp';
             };
@@ -685,13 +685,13 @@
 
         const fileNameEl = document.getElementById('output-slice-file-name');
         if (fileNameEl) fileNameEl.textContent = displayName;
-        setStatus('Loaded ' + dataset.frames.length + ' frame(s) from ' + displayName + (note || '') + '.');
+        setStatus(dataset.frames.length + ' pas de temps chargé(s) depuis ' + displayName + (note || '') + '.');
     }
 
     async function handleOpenSf(viewer, file) {
         try {
             stopPlayback();
-            setStatus('Loading ' + file.name + '...');
+            setStatus('Chargement de ' + file.name + '…');
             const buf = await file.arrayBuffer();
             const dataset = FdsSliceReader.parse(buf);
             const info = SliceFiles.parseSliceFilename(file.name);
@@ -707,12 +707,12 @@
     async function handleFolder(viewer, files) {
         try {
             stopPlayback();
-            setStatus('Scanning folder...');
+            setStatus('Analyse du dossier…');
             // Update the greyscale geometry from any .fds file in the folder
             await refreshGeometryFromFolder(files);
             const sliceFiles = files.filter(f => /\.sf$/i.test(f.name));
             if (sliceFiles.length === 0) {
-                setStatus('No .sf files found in folder.', true);
+                setStatus('Aucun fichier .sf dans ce dossier.', true);
                 return;
             }
             availableFiles = sliceFiles;
@@ -727,7 +727,7 @@
             }
             availableGroups = await SliceFiles.describeSliceGroupsForRuns(sliceFiles, smvRuns);
             if (availableGroups.length === 0) {
-                setStatus('No FDS slice files named like CHID_M_N.sf were found.', true);
+                setStatus('Aucun fichier slice FDS nommé CHID_M_N.sf trouvé.', true);
                 resetSliceSetSelector();
                 return;
             }
@@ -795,7 +795,7 @@
 
     async function loadSliceSet(viewer, group) {
         try {
-            setStatus('Loading slice set ' + group.sliceIndex + '...');
+            setStatus('Chargement du plan de coupe ' + group.sliceIndex + '…');
             const { dataset, displayName } = await datasetFromSliceGroup(group);
             loadDatasetIntoOverlay(viewer, dataset, displayName, SliceFiles.sliceGroupMissingNote(group));
         } catch (e) {
@@ -806,7 +806,7 @@
 
     function setPlayIcons(playing) {
         const lbl = document.getElementById('output-play-label');
-        if (lbl) lbl.textContent = playing ? 'Pause' : 'Play';
+        if (lbl) lbl.textContent = playing ? 'Pause' : 'Lecture';
         const vpBtn = document.getElementById('output-vp-play-btn');
         if (vpBtn) vpBtn.innerHTML = playing ? '&#9646;&#9646;' : '&#9654;';
     }
@@ -1080,8 +1080,8 @@
             if (/SOOT/i.test(g.quantity)) sootCount = g.entries.length;
             if (/^HRRPUV$/i.test(g.quantity)) hrrCount = g.entries.length;
         }
-        set('output-smoke-meta-soot', sootCount ? sootCount + ' files' : '--');
-        set('output-smoke-meta-hrr', hrrCount ? hrrCount + ' files' : '--');
+        set('output-smoke-meta-soot', sootCount ? sootCount + ' fichier(s)' : '--');
+        set('output-smoke-meta-hrr', hrrCount ? hrrCount + ' fichier(s)' : '--');
 
         // Flatten every .s3d file across every quantity group into a single
         // list so the user can verify exactly what the folder contributed.
@@ -1110,7 +1110,7 @@
     async function handleSmokeFolder(viewer, files) {
         try {
             stopSmokePlayback();
-            setSmokeStatus('Scanning folder...');
+            setSmokeStatus('Analyse du dossier…');
             // Refresh greyscale geometry from any .fds in the folder
             await refreshGeometryFromFolder(files);
             const ov = ensureSmokeOverlay(viewer);
@@ -1129,22 +1129,22 @@
             const qSel = document.getElementById('output-smoke-quantity');
             if (qSel) {
                 qSel.innerHTML = '';
-                if (avail.soot && avail.hrr) addOpt(qSel, 'combined', 'Soot + HRRPUV');
+                if (avail.soot && avail.hrr) addOpt(qSel, 'combined', 'Suie + HRRPUV');
                 if (avail.soot)              addOpt(qSel, 'soot', 'SOOT DENSITY');
                 if (avail.hrr)               addOpt(qSel, 'hrrpuv', 'HRRPUV');
                 if (!qSel.options.length) {
-                    addOpt(qSel, '', 'No SOOT DENSITY or HRRPUV found');
+                    addOpt(qSel, '', 'Ni SOOT DENSITY ni HRRPUV trouvé');
                     qSel.disabled = true;
                     const loadBtn = document.getElementById('output-smoke-load');
                     if (loadBtn) loadBtn.disabled = true;
-                    setSmokeStatus('No SOOT DENSITY or HRRPUV groups in this folder.', true);
+                    setSmokeStatus('Aucune donnée SOOT DENSITY ou HRRPUV dans ce dossier.', true);
                     return;
                 }
                 qSel.disabled = false;
                 const loadBtn = document.getElementById('output-smoke-load');
                 if (loadBtn) loadBtn.disabled = false;
             }
-            setSmokeStatus('Found Smoke3D groups. Choose a quantity and click Load selected data.');
+            setSmokeStatus('Données Smoke3D trouvées. Choisissez une grandeur puis « Charger les données ».');
         } catch (e) {
             console.error(e);
             setSmokeStatus(e.message, true);
@@ -1169,7 +1169,7 @@
             if (loadBtn) loadBtn.disabled = false;
             configureSmokeFrameSlider(result.frameCount);
             showViewerOverlay(true, true); // show play bar, hide colorbar in smoke mode
-            setSmokeStatus('Loaded. ' + (result.note || ('Frames: ' + result.frameCount)));
+            setSmokeStatus('Chargé. ' + (result.note || ('Pas de temps : ' + result.frameCount)));
         } catch (e) {
             console.error(e);
             setSmokeStatus(e.message, true);
@@ -1199,7 +1199,7 @@
     function setSmokePlayIcons(playing) {
         const lbl   = document.getElementById('output-smoke-play-label');
         const vpBtn = document.getElementById('output-vp-play-btn');
-        if (lbl) lbl.textContent = playing ? 'Pause' : 'Play';
+        if (lbl) lbl.textContent = playing ? 'Pause' : 'Lecture';
         if (mode === 'smoke' && vpBtn) vpBtn.innerHTML = playing ? '&#9646;&#9646;' : '&#9654;';
     }
 
@@ -1274,7 +1274,7 @@
         const updateSampleReadout = () => {
             if (!sampleVal || !sample) return;
             const n = STEPS_PER_LEVEL[parseInt(sample.value, 10)] || 160;
-            sampleVal.textContent = n + ' steps/ray';
+            sampleVal.textContent = n + ' pas/rayon';
         };
         if (sample) sample.addEventListener('change', () => {
             if (smokeOverlay) smokeOverlay.setSampleStep(parseInt(sample.value, 10) || 1);
@@ -1398,13 +1398,13 @@
         set('output-boundary-meta-fds', info.fdsName);
         set('output-boundary-meta-meshes', info.meshCount);
         set('output-boundary-meta-objects', info.objectCount + ' OBST, ' + info.ventCount + ' VENT');
-        set('output-boundary-meta-bndf', info.groupKeys.length + ' quantity set(s)');
+        set('output-boundary-meta-bndf', info.groupKeys.length + ' grandeur(s)');
     }
 
     async function handleBoundaryFolder(viewer, files) {
         try {
             stopBoundaryPlayback();
-            setBoundaryStatus('Scanning folder...');
+            setBoundaryStatus('Analyse du dossier…');
             // Refresh greyscale geometry from the folder's .fds so OBST/VENT context shows
             await refreshGeometryFromFolder(files);
             const ov = ensureBoundaryOverlay(viewer);
@@ -1425,23 +1425,23 @@
                 for (const [key, group] of info.groups.entries()) {
                     const opt = document.createElement('option');
                     opt.value = key;
-                    opt.textContent = group.quantity + ' (' + group.entries.length + ' file' + (group.entries.length === 1 ? '' : 's') + ')';
+                    opt.textContent = group.quantity + ' (' + group.entries.length + ' fichier' + (group.entries.length === 1 ? '' : 's') + ')';
                     setSel.appendChild(opt);
                 }
                 if (!setSel.options.length) {
                     const opt = document.createElement('option');
                     opt.value = '';
-                    opt.textContent = 'No BNDF boundary data found';
+                    opt.textContent = 'Aucune donnée boundary (BNDF)';
                     setSel.appendChild(opt);
                     setSel.disabled = true;
                     if (loadBtn) loadBtn.disabled = true;
-                    setBoundaryStatus('No BNDF data in this folder.', true);
+                    setBoundaryStatus('Aucune donnée BNDF dans ce dossier.', true);
                     return;
                 }
                 setSel.disabled = false;
                 if (loadBtn) loadBtn.disabled = false;
             }
-            setBoundaryStatus('Found boundary data. Choose a quantity and click Load selected data.');
+            setBoundaryStatus('Données boundary trouvées. Choisissez une grandeur puis « Charger les données ».');
         } catch (e) {
             console.error(e);
             setBoundaryStatus(e.message, true);
@@ -1461,7 +1461,7 @@
             configureBoundaryFrameSlider(result.frameCount);
             showViewerOverlay(true, false); // show play bar AND colorbar
             refreshBoundaryColorbar();
-            setBoundaryStatus('Loaded ' + result.quantity + '. ' + (result.note || ('Frames: ' + result.frameCount)));
+            setBoundaryStatus(result.quantity + ' chargé. ' + (result.note || ('Pas de temps : ' + result.frameCount)));
         } catch (e) {
             console.error(e);
             setBoundaryStatus(e.message, true);
@@ -1501,7 +1501,7 @@
     function setBoundaryPlayIcons(playing) {
         const lbl   = document.getElementById('output-boundary-play-label');
         const vpBtn = document.getElementById('output-vp-play-btn');
-        if (lbl) lbl.textContent = playing ? 'Pause' : 'Play';
+        if (lbl) lbl.textContent = playing ? 'Pause' : 'Lecture';
         if (mode === 'boundary' && vpBtn) vpBtn.innerHTML = playing ? '&#9646;&#9646;' : '&#9654;';
     }
 
@@ -1717,8 +1717,8 @@
         sel.disabled = false;
         if (preferredKey) sel.value = preferredKey;
         setVismapStatus(preferredKey
-            ? 'Smoke data found. Add waypoints, then compute.'
-            : 'No extinction/optical-density slice found — pick a quantity manually.', !preferredKey);
+            ? 'Données de fumée trouvées. Ajoutez des points de repère, puis lancez le calcul.'
+            : 'Aucun slice d’extinction ou de densité optique trouvé : choisissez une grandeur manuellement.', !preferredKey);
         const group = availableGroups.find(g => g.key === sel.value);
         if (group) fillVismapTimeDefaults(group);
     }
@@ -1778,7 +1778,7 @@
         const remove = document.createElement('button');
         remove.type = 'button';
         remove.className = 'vismap-card-remove';
-        remove.textContent = '✕ Remove';
+        remove.textContent = '✕ Supprimer';
         remove.addEventListener('click', () => { card.remove(); updateVismapHints(); onChange(); });
         header.appendChild(remove);
         card.appendChild(header);
@@ -1807,11 +1807,11 @@
 
     function addVismapWaypointRow(x, y, c, alpha) {
         const id = ++vismapWaypointSeq;
-        const card = addVismapCard('output-vismap-waypoints', 'Waypoint ' + id, [
-            { cls: 'vismap-wp-x', label: 'X / m', title: 'X coordinate in FDS coordinates', value: x },
-            { cls: 'vismap-wp-y', label: 'Y / m', title: 'Y coordinate in FDS coordinates', value: y },
-            { cls: 'vismap-wp-c', label: 'C', title: 'Contrast factor (Jin): 3 reflecting, 8 illuminated sign', value: c },
-            { cls: 'vismap-wp-a', label: 'α / °', title: 'Sign orientation angle (0° faces +Y, 90° faces +X)', value: alpha },
+        const card = addVismapCard('output-vismap-waypoints', 'Point ' + id, [
+            { cls: 'vismap-wp-x', label: 'X / m', title: 'Coordonnée X (repère FDS)', value: x },
+            { cls: 'vismap-wp-y', label: 'Y / m', title: 'Coordonnée Y (repère FDS)', value: y },
+            { cls: 'vismap-wp-c', label: 'C', title: 'Facteur de contraste (Jin) : 3 panneau réfléchissant, 8 panneau lumineux', value: c },
+            { cls: 'vismap-wp-a', label: 'α / °', title: 'Orientation du panneau (0° vers +Y, 90° vers +X)', value: alpha },
         ], pushVismapWaypointsToEngine);
         if (!card) return null;
         card.classList.add('vismap-wp-row');
@@ -1853,26 +1853,26 @@
 
             const x = num('vismap-wp-x'), y = num('vismap-wp-y');
             let bad = false;
-            if (!Number.isFinite(x)) { errors.push('Waypoint ' + id + ': X is required.'); markVismapInput(row, 'vismap-wp-x', true); bad = true; }
-            if (!Number.isFinite(y)) { errors.push('Waypoint ' + id + ': Y is required.'); markVismapInput(row, 'vismap-wp-y', true); bad = true; }
+            if (!Number.isFinite(x)) { errors.push('Point ' + id + ' : X est obligatoire.'); markVismapInput(row, 'vismap-wp-x', true); bad = true; }
+            if (!Number.isFinite(y)) { errors.push('Point ' + id + ' : Y est obligatoire.'); markVismapInput(row, 'vismap-wp-y', true); bad = true; }
             if (!bad && bounds) {
                 if (x < bounds.x0 || x > bounds.x1) {
-                    errors.push('Waypoint ' + id + ': X=' + x + ' is outside the domain (' + bounds.x0 + '…' + bounds.x1 + ').');
+                    errors.push('Point ' + id + ' : X=' + x + ' est hors du domaine (' + bounds.x0 + '…' + bounds.x1 + ').');
                     markVismapInput(row, 'vismap-wp-x', true); bad = true;
                 }
                 if (y < bounds.y0 || y > bounds.y1) {
-                    errors.push('Waypoint ' + id + ': Y=' + y + ' is outside the domain (' + bounds.y0 + '…' + bounds.y1 + ').');
+                    errors.push('Point ' + id + ' : Y=' + y + ' est hors du domaine (' + bounds.y0 + '…' + bounds.y1 + ').');
                     markVismapInput(row, 'vismap-wp-y', true); bad = true;
                 }
             }
             const c = raw('vismap-wp-c') ? num('vismap-wp-c') : 3;
             if (!Number.isFinite(c) || c <= 0) {
-                errors.push('Waypoint ' + id + ': contrast factor C must be a positive number (Jin: 3 or 8).');
+                errors.push('Point ' + id + ' : le facteur de contraste C doit être positif (Jin : 3 ou 8).');
                 markVismapInput(row, 'vismap-wp-c', true); bad = true;
             }
             const alpha = num('vismap-wp-a');
             if (!Number.isFinite(alpha)) {
-                errors.push('Waypoint ' + id + ': orientation angle α is required (degrees).');
+                errors.push('Point ' + id + ' : l’angle d’orientation α est obligatoire (degrés).');
                 markVismapInput(row, 'vismap-wp-a', true); bad = true;
             }
             if (!bad) waypoints.push({ id, x, y, c, alpha });
@@ -1885,12 +1885,12 @@
 
     function addVismapRegionRow(type) {
         const id = ++vismapRegionSeq;
-        const title = (type === 'hole' ? 'Hole ' : 'Obstruction ') + id;
+        const title = (type === 'hole' ? 'Ouverture ' : 'Obstruction ') + id;
         const card = addVismapCard('output-vismap-regions', title, [
-            { cls: 'vismap-rg-x1', label: 'X1 / m', title: 'Lower X corner', value: null },
-            { cls: 'vismap-rg-x2', label: 'X2 / m', title: 'Upper X corner', value: null },
-            { cls: 'vismap-rg-y1', label: 'Y1 / m', title: 'Lower Y corner', value: null },
-            { cls: 'vismap-rg-y2', label: 'Y2 / m', title: 'Upper Y corner', value: null },
+            { cls: 'vismap-rg-x1', label: 'X1 / m', title: 'Coin X inférieur', value: null },
+            { cls: 'vismap-rg-x2', label: 'X2 / m', title: 'Coin X supérieur', value: null },
+            { cls: 'vismap-rg-y1', label: 'Y1 / m', title: 'Coin Y inférieur', value: null },
+            { cls: 'vismap-rg-y2', label: 'Y2 / m', title: 'Coin Y supérieur', value: null },
         ], pushVismapRegionsToOverlay);
         if (!card) return null;
         card.classList.add('vismap-region-row');
@@ -1907,7 +1907,7 @@
         const regions = [], errors = [];
         for (const row of rows) {
             const type = row.dataset.regionType === 'hole' ? 'hole' : 'obstruction';
-            const name = (type === 'hole' ? 'Hole ' : 'Obstruction ') + row.dataset.regionId;
+            const name = (type === 'hole' ? 'Ouverture ' : 'Obstruction ') + row.dataset.regionId;
             const values = ['vismap-rg-x1', 'vismap-rg-x2', 'vismap-rg-y1', 'vismap-rg-y2']
                 .map(cls => ({ cls, v: parseFloat(row.querySelector('.' + cls).value) }));
             let bad = false;
@@ -1917,7 +1917,7 @@
                 if (invalid) bad = true;
             }
             if (bad) {
-                errors.push(name + ': all four coordinates (X1, X2, Y1, Y2) are required.');
+                errors.push(name + ' : les quatre coordonnées (X1, X2, Y1, Y2) sont obligatoires.');
                 continue;
             }
             const [x1v, x2v, y1v, y2v] = values.map(o => o.v);
@@ -1927,7 +1927,7 @@
                 y1: Math.min(y1v, y2v), y2: Math.max(y1v, y2v),
             };
             if (region.x1 === region.x2 || region.y1 === region.y2) {
-                errors.push(name + ': the rectangle has zero extent.');
+                errors.push(name + ' : le rectangle a une surface nulle.');
                 continue;
             }
             regions.push(region);
@@ -1942,7 +1942,7 @@
         overlay.updateRegions(regions);
         overlay.setVisible(mode === 'vismap');
         if (vismapEngine && vismapEngine.computedTimes.length > 0) {
-            setVismapStatus('Visual regions changed — recompute to update the maps.');
+            setVismapStatus('Obstructions visuelles modifiées : relancez le calcul pour mettre à jour les cartes.');
         }
     }
 
@@ -1958,14 +1958,14 @@
         }
         if (vismapOverlay) vismapOverlay.updateMarkers();
         if (errors.length) setVismapStatus(errors[0], true);
-        else if (hadResults) setVismapStatus('Waypoints changed — recompute to update the maps.');
+        else if (hadResults) setVismapStatus('Points modifiés : relancez le calcul pour mettre à jour les cartes.');
     }
 
     async function computeVismap(viewer) {
         try {
             stopVismapPlayback();
             if (!availableGroups || availableGroups.length === 0) {
-                setVismapStatus('Open a simulation folder with slice data first.', true);
+                setVismapStatus('Ouvrez d’abord un dossier de simulation contenant des slices.', true);
                 return;
             }
             const qtySel = document.getElementById('output-vismap-quantity');
@@ -1978,15 +1978,15 @@
                 return;
             }
             if (waypoints.length === 0) {
-                setVismapStatus('Add at least one waypoint (X and Y required).', true);
+                setVismapStatus('Ajoutez au moins un point de repère (X et Y obligatoires).', true);
                 return;
             }
 
-            setVismapStatus('Loading slice data...');
+            setVismapStatus('Chargement des slices…');
             const { dataset } = await datasetFromSliceGroup(group);
             const view = SliceUtil.buildPlaneView(dataset, 0, currentSliceContext());
             if (!view.physical) {
-                setVismapStatus('No mesh geometry found (.smv or .fds in the folder) — cannot place the slice in space.', true);
+                setVismapStatus('Géométrie de maillage introuvable (.smv ou .fds dans le dossier) : impossible de positionner le slice.', true);
                 return;
             }
             const [nx, ny] = dataset.dims;
@@ -2027,7 +2027,7 @@
             await vismapEngine.computeAll({
                 obstructions: !!(document.getElementById('output-vismap-obstructions') || {}).checked,
                 viewAngle: !!(document.getElementById('output-vismap-viewangle') || {}).checked,
-                onProgress: (done, total) => setVismapStatus('Computing… time step ' + done + ' / ' + total),
+                onProgress: (done, total) => setVismapStatus('Calcul… pas de temps ' + done + ' / ' + total),
             });
 
             const slider = document.getElementById('output-vismap-time-slider');
@@ -2038,7 +2038,7 @@
             if (mapSel) mapSel.disabled = false;
             if (playBtn) playBtn.disabled = n <= 1;
             renderVismapMap();
-            setVismapStatus('Computed ' + n + ' time step(s) for ' + waypoints.length + ' waypoint(s).');
+            setVismapStatus(n + ' pas de temps calculé(s) pour ' + waypoints.length + ' point(s).');
         } catch (e) {
             console.error(e);
             setVismapStatus(e.message, true);
@@ -2049,7 +2049,7 @@
         if (!vismapOverlay || !vismapEngine || vismapEngine.computedTimes.length === 0) {
             // Explain why nothing changes instead of silently ignoring the
             // interaction — results are cleared by any waypoint/region edit.
-            if (fromUser) setVismapStatus('No computed maps — press "Compute visibility maps" first.', true);
+            if (fromUser) setVismapStatus('Aucune carte calculée : cliquez d’abord sur « Calculer les cartes de visibilité ».', true);
             return;
         }
         const mapSel = document.getElementById('output-vismap-mapmode');
@@ -2067,13 +2067,13 @@
             if (readout) readout.textContent = times[idx].toFixed(1) + ' s';
         } else if (mapMode === 'aset') {
             legend = vismapOverlay.showMap('aset');
-            if (readout) readout.textContent = 'up to ' + times[times.length - 1].toFixed(1) + ' s';
+            if (readout) readout.textContent = 'jusqu’à ' + times[times.length - 1].toFixed(1) + ' s';
             if (times.length <= 1) {
-                setVismapStatus('The ASET map needs several time points to show when visibility is lost — extend End or reduce Step, then recompute.', true);
+                setVismapStatus('La carte ASET nécessite plusieurs instants pour montrer la perte de visibilité : augmentez la Fin ou réduisez le Pas, puis relancez.', true);
             }
         } else {
             legend = vismapOverlay.showMap('aggregated');
-            if (readout) readout.textContent = 'all times (green = always visible)';
+            if (readout) readout.textContent = 'tous instants (vert = toujours visible)';
         }
         updateVismapColorbar(legend);
     }
@@ -2083,7 +2083,7 @@
 
     function setVismapPlayIcon(playing) {
         const lbl = document.getElementById('output-vismap-play-label');
-        if (lbl) lbl.textContent = playing ? 'Pause' : 'Play';
+        if (lbl) lbl.textContent = playing ? 'Pause' : 'Lecture';
     }
 
     function stopVismapPlayback() {
@@ -2158,21 +2158,21 @@
         if (addBtn) addBtn.addEventListener('click', () => {
             const { errors } = readVismapWaypointRows();
             if (errors.length) {
-                setVismapStatus('Complete the marked waypoint first: ' + errors[0], true);
+                setVismapStatus('Complétez d’abord le point signalé : ' + errors[0], true);
                 return;
             }
             addVismapWaypointRow(null, null, 3, 0);
-            setVismapStatus('Fill in the new waypoint (X and Y required, C default 3, α default 0).');
+            setVismapStatus('Renseignez le nouveau point (X et Y obligatoires, C = 3 et α = 0 par défaut).');
         });
 
         const addRegion = (type) => {
             const { errors } = readVismapRegions();
             if (errors.length) {
-                setVismapStatus('Complete the marked region first: ' + errors[0], true);
+                setVismapStatus('Complétez d’abord la zone signalée : ' + errors[0], true);
                 return;
             }
             addVismapRegionRow(type);
-            setVismapStatus('Fill in all four corners of the new ' + type + '.');
+            setVismapStatus('Renseignez les quatre coins de la nouvelle ' + (type === 'hole' ? 'ouverture' : 'obstruction') + '.');
         };
         const addObstBtn = document.getElementById('output-vismap-add-obst');
         if (addObstBtn) addObstBtn.addEventListener('click', () => addRegion('obstruction'));
@@ -2201,7 +2201,7 @@
         if (pickBtn) pickBtn.addEventListener('click', () => {
             vismapPicking = !vismapPicking;
             pickBtn.classList.toggle('active', vismapPicking);
-            if (vismapPicking) setVismapStatus('Click a position in the 3D view to place the waypoint.');
+            if (vismapPicking) setVismapStatus('Cliquez dans la vue 3D pour placer le point.');
         });
         if (viewer && viewer.renderer) {
             viewer.renderer.domElement.addEventListener('pointerdown', (event) => {
@@ -2220,11 +2220,11 @@
                 if (raycaster.ray.intersectPlane(plane, hit)) {
                     const { errors } = readVismapWaypointRows();
                     if (errors.length) {
-                        setVismapStatus('Complete the marked waypoint first: ' + errors[0], true);
+                        setVismapStatus('Complétez d’abord le point signalé : ' + errors[0], true);
                     } else {
                         addVismapWaypointRow(Math.round(hit.x * 100) / 100, Math.round(-hit.z * 100) / 100, 3, 0);
                         pushVismapWaypointsToEngine();
-                        setVismapStatus('Waypoint placed at X=' + hit.x.toFixed(2) + ', Y=' + (-hit.z).toFixed(2) + '.');
+                        setVismapStatus('Point placé en X=' + hit.x.toFixed(2) + ', Y=' + (-hit.z).toFixed(2) + '.');
                     }
                 }
                 vismapPicking = false;
@@ -2252,7 +2252,7 @@
 
         async function loadAgentTrajectory(file) {
             const status = document.getElementById('output-agents-status');
-            if (status) status.textContent = 'Loading ' + file.name + '…';
+            if (status) status.textContent = 'Chargement de ' + file.name + '…';
             const buf = await file.arrayBuffer();
             const ds = await loadTrajectorySqlite(buf);
             if (!agentOverlay) agentOverlay = new AgentOverlay(viewer.scene);
@@ -2264,7 +2264,7 @@
             drawAgentColorbar();
             let maxAgents = 0;
             for (const f of ds.frames) if (f.count > maxAgents) maxAgents = f.count;
-            if (status) status.textContent = file.name + ' — ' + ds.frames.length + ' frames, ' + maxAgents + ' agents max';
+            if (status) status.textContent = file.name + ' — ' + ds.frames.length + ' pas de temps, ' + maxAgents + ' agents max';
         }
 
         if (agentsFile) agentsFile.addEventListener('change', async (e) => {
@@ -2276,7 +2276,7 @@
                 if (agentsReload) agentsReload.disabled = false;
             } catch (err) {
                 const status = document.getElementById('output-agents-status');
-                if (status) status.textContent = 'Error: ' + err.message;
+                if (status) status.textContent = 'Erreur : ' + err.message;
                 if (typeof console !== 'undefined') console.error(err);
             }
         });
@@ -2284,18 +2284,18 @@
         if (agentsReload) agentsReload.addEventListener('click', async () => {
             if (!agentFile || agentsReload.disabled) return;
             agentsReload.disabled = true;
-            agentsReload.textContent = 'Reloading…';
+            agentsReload.textContent = 'Rechargement…';
             try {
                 await loadAgentTrajectory(agentFile);
                 const status = document.getElementById('output-agents-status');
                 if (status) status.textContent += ' · reloaded ' + new Date().toTimeString().slice(0, 8);
-                agentsReload.textContent = 'Reloaded ✓';
-                setTimeout(() => { agentsReload.textContent = 'Reload'; agentsReload.disabled = false; }, 1600);
+                agentsReload.textContent = 'Rechargé ✓';
+                setTimeout(() => { agentsReload.textContent = 'Recharger'; agentsReload.disabled = false; }, 1600);
             } catch (err) {
                 const status = document.getElementById('output-agents-status');
-                if (status) status.textContent = agentFile.name + ' could not be re-read (changed on disk?) — click Browse to re-select.';
+                if (status) status.textContent = agentFile.name + ' n’a pas pu être relu (modifié sur le disque ?) : sélectionnez-le à nouveau.';
                 if (agentsFile) agentsFile.value = '';
-                agentsReload.textContent = 'Reload';
+                agentsReload.textContent = 'Recharger';
                 agentsReload.disabled = false;
                 if (typeof console !== 'undefined') console.error(err);
             }

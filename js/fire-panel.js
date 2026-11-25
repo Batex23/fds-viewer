@@ -66,7 +66,7 @@ function buildOverview(data) {
             <span class="fp-ov-val">${esc(chid)}</span>
         </div>
         ${title ? `<div class="fp-ov-item">
-            <span class="fp-ov-lbl">Title</span>
+            <span class="fp-ov-lbl">Titre</span>
             <span class="fp-ov-val fp-ov-title">${esc(title)}</span>
         </div>` : ''}
         <div class="fp-ov-item">
@@ -74,21 +74,21 @@ function buildOverview(data) {
             <span class="fp-ov-val">${tEnd}</span>
         </div>
         <div class="fp-ov-item">
-            <span class="fp-ov-lbl">Ambient Temp</span>
+            <span class="fp-ov-lbl">Temp. ambiante</span>
             <span class="fp-ov-val">${tmpa}</span>
         </div>
         <div class="fp-ov-item">
-            <span class="fp-ov-lbl">Meshes</span>
+            <span class="fp-ov-lbl">Maillages</span>
             <span class="fp-ov-val">${nMesh}</span>
         </div>
         ${cells > 0 ? `<div class="fp-ov-item">
-            <span class="fp-ov-lbl">Total Cells</span>
+            <span class="fp-ov-lbl">Cellules au total</span>
             <span class="fp-ov-val">${(cells/1000).toFixed(0)} k</span>
         </div>` : ''}
         ${surfDef ? `<div class="fp-ov-item">
             <span class="fp-ov-lbl">SURF_DEFAULT</span>
             <span class="fp-ov-val${surfDef !== 'INERT' ? ' fp-text-warn-strong' : ''}"
-                  title="${surfDef !== 'INERT' ? 'Non-default SURF_DEFAULT: all unspecified surfaces use ' + surfDef : ''}">
+                  title="${surfDef !== 'INERT' ? 'SURF_DEFAULT modifié : toutes les surfaces non précisées utilisent ' + surfDef : ''}">
                 ${esc(surfDef)}${surfDef !== 'INERT' ? ' ⚠' : ''}
             </span>
         </div>` : ''}
@@ -100,9 +100,9 @@ function buildOverview(data) {
 function buildReacSection(data) {
     if (!data.reacs || !data.reacs.length) return '';
 
-    let html = '<div class="fp-card"><div class="fp-card-title">Combustion Reaction';
+    let html = '<div class="fp-card"><div class="fp-card-title">Réaction de combustion';
     if (data.reacs.length > 1)
-        html += ` <span class="fp-badge fp-badge-fire">${data.reacs.length} reactions</span>`;
+        html += ` <span class="fp-badge fp-badge-fire">${data.reacs.length} réactions</span>`;
     html += '</div>';
 
     data.reacs.forEach(reac => {
@@ -130,17 +130,17 @@ function buildReacSection(data) {
         }
 
         html += `<table class="fp-prop-table">
-            <tr><td>Fuel Species</td><td><strong class="fp-text-accent">${fuelDisplay}</strong></td></tr>
-            ${hoc   != null ? `<tr><td>Heat of Combustion</td><td>${hoc.toLocaleString()} kJ/kg &nbsp;<span class="fp-note-sm">(${(hoc/1000).toFixed(0)} MJ/kg)</span></td></tr>` : ''}
-            ${soot  != null ? `<tr><td>Soot Yield</td><td>${soot} kg/kg &nbsp;<span class="fp-note-sm">(${(soot*100).toFixed(1)} %)</span></td></tr>` : ''}
-            ${co    != null ? `<tr><td>CO Yield</td><td>${co} kg/kg &nbsp;<span class="fp-note-sm">(${(co*100).toFixed(2)} %)</span></td></tr>` : ''}
-            ${co2   != null ? `<tr><td>CO₂ Yield</td><td>${co2} kg/kg</td></tr>` : ''}
-            ${radFrac != null ? `<tr><td>Radiative Fraction</td><td>${(radFrac*100).toFixed(0)} %</td></tr>` : ''}
-            ${eatm  != null ? `<tr><td>Heat Release / O₂ (EPUMO2)</td><td>${eatm} kJ/kg</td></tr>` : ''}
+            <tr><td>Combustible</td><td><strong class="fp-text-accent">${fuelDisplay}</strong></td></tr>
+            ${hoc   != null ? `<tr><td>Chaleur de combustion</td><td>${hoc.toLocaleString()} kJ/kg &nbsp;<span class="fp-note-sm">(${(hoc/1000).toFixed(0)} MJ/kg)</span></td></tr>` : ''}
+            ${soot  != null ? `<tr><td>Rendement en suie</td><td>${soot} kg/kg &nbsp;<span class="fp-note-sm">(${(soot*100).toFixed(1)} %)</span></td></tr>` : ''}
+            ${co    != null ? `<tr><td>Rendement en CO</td><td>${co} kg/kg &nbsp;<span class="fp-note-sm">(${(co*100).toFixed(2)} %)</span></td></tr>` : ''}
+            ${co2   != null ? `<tr><td>Rendement en CO₂</td><td>${co2} kg/kg</td></tr>` : ''}
+            ${radFrac != null ? `<tr><td>Fraction radiative</td><td>${(radFrac*100).toFixed(0)} %</td></tr>` : ''}
+            ${eatm  != null ? `<tr><td>Énergie par masse d’O₂ (EPUMO2)</td><td>${eatm} kJ/kg</td></tr>` : ''}
         </table>`;
     });
 
-    html += codeBlock('FDS &REAC code', data.reacs.map(rawOf));
+    html += codeBlock('Code FDS &REAC', data.reacs.map(rawOf));
     html += '</div>';
     return html;
 }
@@ -154,12 +154,12 @@ function getFireSurfs(data) {
 }
 
 function buildFireSourcesSection(data, fireSurfs) {
-    let html = '<div class="fp-card"><div class="fp-card-title">Fire Sources';
+    let html = '<div class="fp-card"><div class="fp-card-title">Foyers';
     html += ` <span class="fp-badge fp-badge-fire">${fireSurfs.length}</span></div>`;
 
     html += `<table class="fp-source-table">
         <thead><tr>
-            <th>SURF ID</th><th>HRRPUA</th><th>Growth</th><th>Peak HRR</th><th>Vents / Area</th>
+            <th>SURF ID</th><th>HRRPUA</th><th>Croissance</th><th>HRR max.</th><th>Vents / surface</th>
         </tr></thead><tbody>`;
 
     fireSurfs.forEach(surf => {
@@ -197,20 +197,20 @@ function buildFireSourcesSection(data, fireSurfs) {
             const rampType = rampQ ? 'RAMP_Q' : 'RAMP_MF';
             growthHtml = fireSourceValue(
                 `${rampType} = '${ramp.id}'`,
-                `${pts.length} points; peak factor ${peakF.toFixed(2)} at ${tPeak}s; ends at ${tEnd}s`
+                `${pts.length} points ; facteur max. ${peakF.toFixed(2)} à ${tPeak} s ; fin à ${tEnd} s`
             );
         } else if (tauQ != null) {
             // FDS: negative TAU_Q is t² ramp-up (same physics, different sign convention).
             // Show absolute value and the curve type rather than the raw parameter name.
             growthHtml = fireSourceValue(`t² τ = ${Math.abs(tauQ)} s`);
         } else if (tauT != null) {
-            growthHtml = fireSourceValue(`Exponential τ = ${Math.abs(tauT)} s`);
+            growthHtml = fireSourceValue(`Exponentielle τ = ${Math.abs(tauT)} s`);
         } else if (rampQ || rampMf) {
             // RAMP referenced but not parsed (e.g. defined as F=array on a single line)
             const rampType = rampQ ? 'RAMP_Q' : 'RAMP_MF';
             growthHtml = fireSourceValue(`${rampType} = '${rampQ || rampMf}'`);
         } else if (hrrpua != null) {
-            growthHtml = fireSourceValue('Steady');
+            growthHtml = fireSourceValue('Stationnaire');
         }
 
         const hrrStr  = hrrpua != null ? fireSourceValue(`${hrrpua} kW/m²`) : (mlrpua != null ? fireSourceValue(`${mlrpua} kg/m²/s`) : '—');
@@ -231,8 +231,8 @@ function buildFireSourcesSection(data, fireSurfs) {
 
     html += '</tbody></table>';
     html += buildHrrPreviewSection(data, fireSurfs);
-    html += `<p class="fp-note fp-note-after">Switch to the <strong>Mesh</strong> tab for D*/dx resolution analysis — peak HRR from these fire sources is used automatically.</p>`;
-    html += codeBlock('FDS &SURF code (fire sources)', fireSurfs.map(rawOf));
+    html += `<p class="fp-note fp-note-after">L’onglet <strong>Maillage</strong> présente l’analyse de résolution D*/dx ; le HRR max. de ces foyers y est repris automatiquement.</p>`;
+    html += codeBlock('Code FDS &SURF (foyers)', fireSurfs.map(rawOf));
 
     // Collect any &RAMP records referenced by fire SURFs and include them too
     const rampIds = new Set();
@@ -246,7 +246,7 @@ function buildFireSourcesSection(data, fireSurfs) {
             const r = data.ramps[id];
             if (r && r._raws) rampLines.push(...r._raws);
         });
-        if (rampLines.length) html += codeBlock('FDS &RAMP code (referenced)', rampLines);
+        if (rampLines.length) html += codeBlock('Code FDS &RAMP (utilisées)', rampLines);
     }
 
     html += '</div>';
@@ -261,9 +261,9 @@ function buildHrrPreviewSection(data, fireSurfs) {
     if (!previews.length) return '';
 
     return `<div class="fp-hrr-preview">
-        <div class="fp-section-label">Estimated HRR Preview</div>
+        <div class="fp-section-label">Aperçu estimé du HRR</div>
         <div class="fp-note">
-            These curves are estimated from input fire definitions on linked VENTs or OBSTs. They are not FDS output.
+            Ces courbes sont estimées à partir des définitions de feu des VENT ou OBST associés. Ce ne sont pas des résultats FDS.
         </div>
         <div class="fp-hrr-grid">${previews.join('')}</div>
     </div>`;
@@ -293,7 +293,7 @@ function buildHrrPreview(data, surf) {
         </div>
         ${renderHrrSvg(curve.points, curve.flatAt)}
         <div class="fp-hrr-meta">
-            <span>Peak ${formatHrr(peak)}</span>
+            <span>Max. ${formatHrr(peak)}</span>
             <span>${esc(details.join('; '))}</span>
         </div>
     </div>`;
@@ -315,7 +315,7 @@ function fireSurfaceArea(data, surfId) {
 
     return {
         area: ventArea + obstArea,
-        label: parts.join(' + ') || 'No linked area',
+        label: parts.join(' + ') || 'Aucune surface associée',
     };
 }
 
@@ -337,7 +337,7 @@ function estimateBaseHrr(data, p, totalArea) {
         }
     }
 
-    return { value: null, label: 'No HRR estimate' };
+    return { value: null, label: 'Pas d’estimation du HRR' };
 }
 
 function firstHeatOfCombustion(data) {
@@ -359,7 +359,7 @@ function hrrCurvePoints(data, p, ramp, baseHrr) {
         }
         return {
             points: pts,
-            label: `Ramp ${ramp.id}`,
+            label: `RAMP ${ramp.id}`,
             flatAt: flatStartTime(pts),
         };
     }
@@ -385,7 +385,7 @@ function hrrCurvePoints(data, p, ramp, baseHrr) {
     const end = tEnd && tEnd > 0 ? tEnd : 60;
     return {
         points: [{ t: 0, hrr: baseHrr }, { t: end, hrr: baseHrr }],
-        label: 'Steady',
+        label: 'Stationnaire',
         flatAt: 0,
     };
 }
@@ -412,7 +412,7 @@ function renderHrrSvg(points, flatAt = null) {
     const flatTextX = flatAnchor === 'end' ? flatX - 4 : (flatAnchor === 'start' ? flatX + 4 : flatX);
     const flatLabel = showFlatMarker ? formatAxisSeconds(flatAt) : '';
 
-    return `<svg class="fp-hrr-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Estimated HRR curve">
+    return `<svg class="fp-hrr-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Courbe de HRR estimée">
         <line x1="${padL}" y1="${padT + plotH}" x2="${width - padR}" y2="${padT + plotH}" />
         <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" />
         ${showFlatMarker ? `<line class="fp-hrr-marker" x1="${flatX.toFixed(1)}" y1="${padT}" x2="${flatX.toFixed(1)}" y2="${padT + plotH}" />
@@ -490,7 +490,7 @@ function boxSurfaceArea(xb) {
 // ─── Gas-Phase Species ────────────────────────────────────────────────────────
 
 function buildSpeciesSection(data, specs) {
-    let html = '<div class="fp-card"><div class="fp-card-title">Gas-Phase Species';
+    let html = '<div class="fp-card"><div class="fp-card-title">Espèces gazeuses';
     html += ` <span class="fp-badge fp-badge-mat">${specs.length}</span></div>`;
 
     html += '<table class="fp-prop-table">';
@@ -504,7 +504,7 @@ function buildSpeciesSection(data, specs) {
             if (sids.includes(spec.id)) usedBy.push('MATL: ' + m.id);
         });
         (data.reacs || []).forEach(r => {
-            if ((r.fuel || r._params.FUEL) === spec.id) usedBy.push('REAC fuel');
+            if ((r.fuel || r._params.FUEL) === spec.id) usedBy.push('combustible REAC');
         });
 
         html += `<tr>
@@ -517,7 +517,7 @@ function buildSpeciesSection(data, specs) {
         </tr>`;
     });
     html += '</table>';
-    html += codeBlock('FDS &SPEC code', specs.map(rawOf));
+    html += codeBlock('Code FDS &SPEC', specs.map(rawOf));
     html += '</div>';
     return html;
 }
@@ -534,7 +534,7 @@ function getCombustibleMatls(data) {
 }
 
 function buildMaterialsSection(data, materials) {
-    let html = '<div class="fp-card"><div class="fp-card-title">Combustible Materials — Pyrolysis';
+    let html = '<div class="fp-card"><div class="fp-card-title">Matériaux combustibles — pyrolyse';
     html += ` <span class="fp-badge fp-badge-mat">${materials.length}</span></div>`;
     html += '<div class="fp-mat-cards">';
 
@@ -547,27 +547,27 @@ function buildMaterialsSection(data, materials) {
                 <span class="fp-layer fp-layer-${layerCls} fp-layer-chip">${esc(matl.id)}</span>
             </div>
             <table class="fp-prop-table">
-                ${p.DENSITY        != null ? row('Density',        p.DENSITY        + ' kg/m³')    : ''}
-                ${p.CONDUCTIVITY   != null ? row('Conductivity',   p.CONDUCTIVITY   + ' W/m·K')    : ''}
-                ${p.SPECIFIC_HEAT  != null ? row('Specific Heat',  p.SPECIFIC_HEAT  + ' kJ/kg·K')  : ''}
-                ${p.EMISSIVITY     != null ? row('Emissivity',     p.EMISSIVITY)                   : ''}
+                ${p.DENSITY        != null ? row('Masse volumique', p.DENSITY        + ' kg/m³')    : ''}
+                ${p.CONDUCTIVITY   != null ? row('Conductivité',   p.CONDUCTIVITY   + ' W/m·K')    : ''}
+                ${p.SPECIFIC_HEAT  != null ? row('Chaleur massique', p.SPECIFIC_HEAT  + ' kJ/kg·K')  : ''}
+                ${p.EMISSIVITY     != null ? row('Émissivité',     p.EMISSIVITY)                   : ''}
             </table>`;
 
         // Pyrolysis box
         const hasPyro = p.REFERENCE_TEMPERATURE != null || p.HEAT_OF_REACTION != null || p.A != null;
         if (hasPyro) {
             html += `<div class="fp-pyro-box">
-                <div class="fp-pyro-title">Pyrolysis Parameters</div>
+                <div class="fp-pyro-title">Paramètres de pyrolyse</div>
                 <table class="fp-prop-table">
-                    ${p.REFERENCE_TEMPERATURE != null ? row('Ref. Temperature', `<strong class="fp-text-accent">${p.REFERENCE_TEMPERATURE} °C</strong>`) : ''}
-                    ${p.HEAT_OF_REACTION      != null ? row('Heat of Reaction',  p.HEAT_OF_REACTION + ' kJ/kg') : ''}
+                    ${p.REFERENCE_TEMPERATURE != null ? row('Température de réf.', `<strong class="fp-text-accent">${p.REFERENCE_TEMPERATURE} °C</strong>`) : ''}
+                    ${p.HEAT_OF_REACTION      != null ? row('Chaleur de réaction',  p.HEAT_OF_REACTION + ' kJ/kg') : ''}
                     ${p.A   != null ? row('Pre-exp. Factor (A)', fmtExp(p.A) + ' 1/s') : ''}
-                    ${p.E   != null ? row('Activation Energy (E)', fmtExp(p.E) + ' J/mol') : ''}
-                    ${p.N_S != null ? row('Reaction Order (n)', p.N_S) : ''}
-                    ${p.SPEC_ID   != null ? row('Gas Product', `<span class="fp-text-spec">${esc(arrStr(p.SPEC_ID))}</span>`) : ''}
-                    ${p.NU_SPEC   != null ? row('Gas Yield (ν)', arrStr(p.NU_SPEC)) : ''}
-                    ${p.MATL_ID  != null ? row('Solid Residue', esc(arrStr(p.MATL_ID))) : ''}
-                    ${p.NU_MATL  != null ? row('Residue Fraction', arrStr(p.NU_MATL)) : ''}
+                    ${p.E   != null ? row('Énergie d’activation (E)', fmtExp(p.E) + ' J/mol') : ''}
+                    ${p.N_S != null ? row('Ordre de réaction (n)', p.N_S) : ''}
+                    ${p.SPEC_ID   != null ? row('Produit gazeux', `<span class="fp-text-spec">${esc(arrStr(p.SPEC_ID))}</span>`) : ''}
+                    ${p.NU_SPEC   != null ? row('Rendement gazeux (ν)', arrStr(p.NU_SPEC)) : ''}
+                    ${p.MATL_ID  != null ? row('Résidu solide', esc(arrStr(p.MATL_ID))) : ''}
+                    ${p.NU_MATL  != null ? row('Fraction de résidu', arrStr(p.NU_MATL)) : ''}
                 </table>
             </div>`;
         }
@@ -577,7 +577,7 @@ function buildMaterialsSection(data, materials) {
     });
 
     html += '</div>'; // fp-mat-cards
-    html += codeBlock('FDS &MATL code', materials.map(rawOf));
+    html += codeBlock('Code FDS &MATL', materials.map(rawOf));
     html += '</div>'; // fp-card
     return html;
 }
@@ -594,7 +594,7 @@ function getCombustibleSurfs(data, combustibleMatls) {
 }
 
 function buildSurfacesSection(data, surfs) {
-    let html = '<div class="fp-card"><div class="fp-card-title">Combustible Surface Constructions';
+    let html = '<div class="fp-card"><div class="fp-card-title">Parois combustibles (SURF)';
     html += ` <span class="fp-badge fp-badge-mat">${surfs.length}</span></div>`;
     html += '<div class="fp-mat-cards">';
 
@@ -642,17 +642,17 @@ function buildSurfacesSection(data, surfs) {
 
         html += `</div>
             <table class="fp-prop-table fp-prop-table-spaced">
-                ${row('Backing', backing)}
-                ${burnAway    ? row('Burn Away',     '<span class="fp-text-accent">&#10003; Yes</span>') : ''}
-                ${usedByObst > 0 ? row('On Obstructions', usedByObst) : ''}
-                ${usedByVent > 0 ? row('On Vents',         usedByVent) : ''}
+                ${row('Face arrière (BACKING)', backing)}
+                ${burnAway    ? row('Combustion complète (BURN_AWAY)', '<span class="fp-text-accent">&#10003; Oui</span>') : ''}
+                ${usedByObst > 0 ? row('Sur obstructions', usedByObst) : ''}
+                ${usedByVent > 0 ? row('Sur vents',         usedByVent) : ''}
             </table>
             ${fyiNote(p.FYI)}
         </div>`;
     });
 
     html += '</div>'; // fp-mat-cards
-    html += codeBlock('FDS &SURF code (combustible surfaces)', surfs.map(rawOf));
+    html += codeBlock('Code FDS &SURF (parois combustibles)', surfs.map(rawOf));
     html += '</div>'; // fp-card
     return html;
 }
@@ -666,28 +666,28 @@ function buildOutputsSection(data) {
 
     if (!slcfs.length && !bndfs.length && !devcs.length) return '';
 
-    let html = '<div class="fp-card"><div class="fp-card-title">Outputs &amp; Devices</div>';
+    let html = '<div class="fp-card"><div class="fp-card-title">Sorties &amp; capteurs</div>';
 
     // ── Slice Files: items then FDS code ──
     if (slcfs.length) {
-        html += `<div class="fp-section-label">Slice Files (${slcfs.length})</div>`;
+        html += `<div class="fp-section-label">Plans de coupe (${slcfs.length})</div>`;
         html += '<table class="fp-prop-table">';
         slcfs.forEach(s => {
             const plane = s.pbx != null ? `PBX=${s.pbx}` : s.pby != null ? `PBY=${s.pby}` : s.pbz != null ? `PBZ=${s.pbz}` : 'XB';
             const spec  = s.spec_id ? ` [${esc(s.spec_id)}]` : '';
-            const vec   = s.vector  ? ' <span class="fp-text-muted">(vector)</span>' : '';
+            const vec   = s.vector  ? ' <span class="fp-text-muted">(vecteurs)</span>' : '';
             html += `<tr>
                 <td class="fp-out-tag fp-out-slcf">${esc(plane)}</td>
                 <td>${esc(s.quantity || '—')}${spec}${vec}</td>
             </tr>`;
         });
         html += '</table>';
-        html += codeBlock('FDS &SLCF code', slcfs.map(rawOf));
+        html += codeBlock('Code FDS &SLCF', slcfs.map(rawOf));
     }
 
     // ── Boundary Files: items then FDS code ──
     if (bndfs.length) {
-        html += `<div class="fp-section-label fp-section-spaced">Boundary Files (${bndfs.length})</div>`;
+        html += `<div class="fp-section-label fp-section-spaced">Fichiers boundary (${bndfs.length})</div>`;
         html += '<table class="fp-prop-table">';
         bndfs.forEach(b => {
             html += `<tr>
@@ -696,17 +696,17 @@ function buildOutputsSection(data) {
             </tr>`;
         });
         html += '</table>';
-        html += codeBlock('FDS &BNDF code', bndfs.map(rawOf));
+        html += codeBlock('Code FDS &BNDF', bndfs.map(rawOf));
     }
 
     // ── Devices: grouped by QUANTITY then FDS code ──
     if (devcs.length) {
-        html += `<div class="fp-section-label fp-section-spaced">Devices (${devcs.length})</div>`;
+        html += `<div class="fp-section-label fp-section-spaced">Capteurs (${devcs.length})</div>`;
 
         // Group by QUANTITY — sort alphabetically for a stable layout
         const devcGroups = {};
         devcs.forEach(d => {
-            const q = d.quantity || '(no quantity)';
+            const q = d.quantity || '(sans grandeur)';
             if (!devcGroups[q]) devcGroups[q] = [];
             devcGroups[q].push(d);
         });
@@ -722,8 +722,8 @@ function buildOutputsSection(data) {
                 group.forEach(d => {
                     const loc = d.xyz
                         ? d.xyz.map(v => v.toFixed(1)).join(', ')
-                        : (d.xb ? 'XB region' : '—');
-                    html += `<div class="fp-devc-card" title="${esc(d.id)} at (${esc(loc)})">
+                        : (d.xb ? 'zone XB' : '—');
+                    html += `<div class="fp-devc-card" title="${esc(d.id)} en (${esc(loc)})">
                         <div class="fp-devc-id">${esc(d.id)}</div>
                         <div class="fp-devc-q">${esc(loc)}</div>
                     </div>`;
@@ -731,7 +731,7 @@ function buildOutputsSection(data) {
                 html += '</div>';
             });
 
-        html += codeBlock('FDS &DEVC code', devcs.map(rawOf));
+        html += codeBlock('Code FDS &DEVC', devcs.map(rawOf));
     }
 
     html += '</div>';
@@ -745,7 +745,7 @@ function buildCodePanel(text, filename) {
     if (!wrap) return;
 
     if (!text) {
-        wrap.innerHTML = '<p class="fp-empty">Load an .fds file to view the full source code.</p>';
+        wrap.innerHTML = '<p class="fp-empty">Chargez un fichier .fds pour voir le code source complet.</p>';
         return;
     }
 
@@ -759,19 +759,19 @@ function buildCodePanel(text, filename) {
     const overview = `
         <div class="fp-overview">
             <div class="fp-ov-item">
-                <span class="fp-ov-lbl">File</span>
-                <span class="fp-ov-val">${esc(filename || 'untitled.fds')}</span>
+                <span class="fp-ov-lbl">Fichier</span>
+                <span class="fp-ov-val">${esc(filename || 'sans_titre.fds')}</span>
             </div>
             <div class="fp-ov-item">
-                <span class="fp-ov-lbl">Lines</span>
+                <span class="fp-ov-lbl">Lignes</span>
                 <span class="fp-ov-val">${totalLines}</span>
             </div>
             <div class="fp-ov-item">
-                <span class="fp-ov-lbl">Records</span>
+                <span class="fp-ov-lbl">Namelists</span>
                 <span class="fp-ov-val">${recCount}</span>
             </div>
             <div class="fp-ov-item">
-                <span class="fp-ov-lbl">Comment Lines</span>
+                <span class="fp-ov-lbl">Lignes de commentaire</span>
                 <span class="fp-ov-val">${cmtCount}</span>
             </div>
         </div>`;
@@ -790,25 +790,25 @@ function buildCodePanel(text, filename) {
     const card = `
         <div class="fp-card" id="fp-code-card">
             <div class="fp-card-title">
-                Source Code
+                Code source
                 <div class="fp-card-btns" id="fp-view-btns">
                     <button type="button" class="fp-copy-btn fp-lint-toggle" id="fp-lint-toggle"
-                        aria-controls="fp-debug-results" aria-expanded="false" hidden>Issues</button>
-                    <button class="fp-copy-btn" id="fp-copy-fds">Copy all</button>
-                    <button class="fp-copy-btn fp-save-btn" id="fp-save-annotated">&#x2913; Save annotated</button>
-                    <button class="fp-copy-btn fp-edit-btn" id="fp-edit-fds">&#x270E; Edit</button>
+                        aria-controls="fp-debug-results" aria-expanded="false" hidden>Problèmes</button>
+                    <button class="fp-copy-btn" id="fp-copy-fds">Tout copier</button>
+                    <button class="fp-copy-btn fp-save-btn" id="fp-save-annotated">&#x2913; Enregistrer annoté</button>
+                    <button class="fp-copy-btn fp-edit-btn" id="fp-edit-fds">&#x270E; Modifier</button>
                 </div>
                 <div class="fp-card-btns" id="fp-edit-btns" style="display:none">
-                    <span class="fp-edit-mode-badge">EDITING</span>
-                    <button class="fp-copy-btn fp-apply-btn" id="fp-apply-fds">&#x21BA; Apply &amp; reload</button>
-                    <button class="fp-copy-btn fp-view-return-btn" id="fp-view-fds">&#x2713; View</button>
+                    <span class="fp-edit-mode-badge">ÉDITION</span>
+                    <button class="fp-copy-btn fp-apply-btn" id="fp-apply-fds">&#x21BA; Appliquer &amp; recharger</button>
+                    <button class="fp-copy-btn fp-view-return-btn" id="fp-view-fds">&#x2713; Lecture seule</button>
                 </div>
             </div>
             <div class="fp-code-split" id="fp-code-split">
                 <div class="fp-code-body" id="fp-code-body">
                     <div class="fp-code-search" id="fp-code-search-bar">
                         <input type="text" id="fp-code-search"
-                            placeholder="Search…  e.g. HRRPUA, SURF_ID, MESH"
+                            placeholder="Rechercher…  ex. HRRPUA, SURF_ID, MESH"
                             autocomplete="off" spellcheck="false">
                         <span class="fp-search-count" id="fp-search-count"></span>
                     </div>
@@ -821,7 +821,7 @@ function buildCodePanel(text, filename) {
                     </div>
                 </div>
                 <div class="fp-debug-results" id="fp-debug-results"
-                    role="region" aria-label="Linter findings" hidden></div>
+                    role="region" aria-label="Points relevés par l’analyseur" hidden></div>
             </div>
         </div>`;
 
@@ -847,7 +847,7 @@ function buildCodePanel(text, filename) {
         _applyLintHighlights(lintFindings);
         if (lintToggle) {
             const n = lintFindings.length;
-            lintToggle.textContent = n ? `${n} issue${n !== 1 ? 's' : ''}` : 'No issues';
+            lintToggle.textContent = n ? `${n} problème${n !== 1 ? 's' : ''}` : 'Aucun problème';
             lintToggle.hidden = false;
         }
         setLintPanelOpen(lintFindings.length > 0 && !lintPanelClosed);
@@ -964,7 +964,7 @@ function buildCodePanel(text, filename) {
         const newText = ea ? ea.value : liveText;
         exitEditMode(newText);
         if (typeof window._fdsReload === 'function') {
-            applyBtn.textContent = 'Reloading…';
+            applyBtn.textContent = 'Rechargement…';
             setTimeout(() => window._fdsReload(newText, filename), 50);
         }
     });
@@ -988,11 +988,11 @@ function buildCodePanel(text, filename) {
     if (btn) {
         btn.addEventListener('click', () => {
             navigator.clipboard.writeText(liveText).then(() => {
-                btn.textContent = 'Copied!';
-                setTimeout(() => { btn.textContent = 'Copy all'; }, 1200);
+                btn.textContent = 'Copié !';
+                setTimeout(() => { btn.textContent = 'Tout copier'; }, 1200);
             }).catch(() => {
-                btn.textContent = 'Copy failed';
-                setTimeout(() => { btn.textContent = 'Copy all'; }, 1200);
+                btn.textContent = 'Échec de la copie';
+                setTimeout(() => { btn.textContent = 'Tout copier'; }, 1200);
             });
         });
     }
@@ -1017,8 +1017,8 @@ function buildCodePanel(text, filename) {
     if (saveBtn) {
         saveBtn.addEventListener('click', () => {
             _doSaveAnnotated(lintFindings);
-            saveBtn.textContent = '✓ Saved!';
-            setTimeout(() => { saveBtn.innerHTML = '&#x2913; Save annotated'; }, 1500);
+            saveBtn.textContent = '✓ Enregistré !';
+            setTimeout(() => { saveBtn.innerHTML = '&#x2913; Enregistrer annoté'; }, 1500);
         });
     }
 
@@ -1087,14 +1087,14 @@ function _renderLintResults(findings) {
     for (const f of findings) counts[f.severity] = (counts[f.severity] || 0) + 1;
 
     const badges = [];
-    if (counts.ERROR)   badges.push(`<span class="fp-sev-badge fp-sev-error">${counts.ERROR} error${counts.ERROR   !== 1 ? 's' : ''}</span>`);
-    if (counts.WARNING) badges.push(`<span class="fp-sev-badge fp-sev-warning">${counts.WARNING} warning${counts.WARNING !== 1 ? 's' : ''}</span>`);
+    if (counts.ERROR)   badges.push(`<span class="fp-sev-badge fp-sev-error">${counts.ERROR} erreur${counts.ERROR   !== 1 ? 's' : ''}</span>`);
+    if (counts.WARNING) badges.push(`<span class="fp-sev-badge fp-sev-warning">${counts.WARNING} avertissement${counts.WARNING !== 1 ? 's' : ''}</span>`);
     if (counts.INFO)    badges.push(`<span class="fp-sev-badge fp-sev-info">${counts.INFO} info</span>`);
 
     if (!findings.length) {
         return `<div class="fp-debug-clean">
-            <button type="button" class="fp-debug-close" id="fp-debug-close" title="Close" aria-label="Close findings">&#x2715;</button>
-            <div class="fp-no-issues">&#x2713; No issues found — file looks clean.</div>
+            <button type="button" class="fp-debug-close" id="fp-debug-close" title="Fermer" aria-label="Fermer la liste">&#x2715;</button>
+            <div class="fp-no-issues">&#x2713; Aucun problème relevé : le fichier semble correct.</div>
         </div>`;
     }
 
@@ -1102,7 +1102,7 @@ function _renderLintResults(findings) {
         const sc = f.severity.toLowerCase();
         const lineAttr = f.line > 0 ? ` data-line="${f.line}"` : '';
         const lineRange = f.line > 0
-            ? (f.lineEnd && f.lineEnd > f.line ? `lines ${f.line}–${f.lineEnd}` : `line ${f.line}`)
+            ? (f.lineEnd && f.lineEnd > f.line ? `lignes ${f.line}–${f.lineEnd}` : `ligne ${f.line}`)
             : '';
         const lineLabel = lineRange ? `<span class="fp-finding-line">${lineRange}</span>` : '';
         const hint = f.hint ? `<span class="fp-finding-hint">→ ${esc(f.hint)}</span>` : '';
@@ -1110,7 +1110,7 @@ function _renderLintResults(findings) {
         const typeAttr = f.line > 0 ? ' type="button"' : '';
         return `<${tag}${typeAttr} class="fp-finding"${lineAttr}>
             <span class="fp-finding-top">
-                <span class="fp-sev-badge fp-sev-${sc}">${f.severity}</span>
+                <span class="fp-sev-badge fp-sev-${sc}">${({ ERROR: 'ERREUR', WARNING: 'AVERT.', INFO: 'INFO' })[f.severity] || f.severity}</span>
                 ${lineLabel}
             </span>
             <span class="fp-finding-text">
@@ -1122,7 +1122,7 @@ function _renderLintResults(findings) {
 
     return `<div class="fp-debug-header">
         <div class="fp-debug-badges">${badges.join('')}</div>
-        <button type="button" class="fp-debug-close" id="fp-debug-close" title="Close" aria-label="Close findings">&#x2715;</button>
+        <button type="button" class="fp-debug-close" id="fp-debug-close" title="Fermer" aria-label="Fermer la liste">&#x2715;</button>
     </div>
     <div class="fp-findings-list">${rows}</div>`;
 }
@@ -1135,14 +1135,14 @@ function _annotatedFds(text, findings, filename) {
     const bar = '! ' + '═'.repeat(68);
     const header = [
         bar,
-        `! FDS Viewer Linter Report — ${filename || 'untitled.fds'}`,
-        `! ${counts.ERROR} error${counts.ERROR!==1?'s':''}, ${counts.WARNING} warning${counts.WARNING!==1?'s':''}, ${counts.INFO} info`,
+        `! Rapport d’analyse (Visionneuse FDS) — ${filename || 'sans_titre.fds'}`,
+        `! ${counts.ERROR} erreur${counts.ERROR!==1?'s':''}, ${counts.WARNING} avertissement${counts.WARNING!==1?'s':''}, ${counts.INFO} info`,
         bar,
     ];
     if (findings.length) {
         header.push('!');
         for (const f of findings) {
-            const loc = f.line > 0 ? `line ${String(f.line).padStart(4)}` : '        ';
+            const loc = f.line > 0 ? `ligne ${String(f.line).padStart(4)}` : '         ';
             header.push(`! [${f.severity.padEnd(7)}] ${loc}  ${f.message}`);
             if (f.hint) header.push(`!                    → ${f.hint}`);
         }
@@ -1282,9 +1282,9 @@ function codeBlock(summary, rawTexts) {
     if (!lines.length) return '';
     const count = lines.length;
     const body  = lines.map(highlightFds).join('\n');
-    const label = esc(summary || 'Show FDS code');
+    const label = esc(summary || 'Afficher le code FDS');
     return `<details class="fp-code">
-        <summary>${label} <span class="fp-code-count">${count} record${count !== 1 ? 's' : ''}</span></summary>
+        <summary>${label} <span class="fp-code-count">${count} enregistrement${count !== 1 ? 's' : ''}</span></summary>
         <pre class="fp-code-block">${body}</pre>
     </details>`;
 }

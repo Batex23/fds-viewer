@@ -141,7 +141,7 @@
             };
         }).filter(v => v.xb);
 
-        if (!meshes.length) throw new Error('No &MESH records with IJK and XB were found in ' + fileName + '.');
+        if (!meshes.length) throw new Error('Aucune ligne &MESH avec IJK et XB trouvée dans ' + fileName + '.');
         return { fileName, meshes, objects, vents };
     }
     function collectNamelists(text, name) {
@@ -211,8 +211,8 @@
             for (let ei = 0; ei < entries.length; ei++) frameMaps[ei].push(maps[ei].get(k));
         }
         for (let ei = 0; ei < entries.length; ei++) entries[ei].frameMap = frameMaps[ei];
-        if (!frames.length) throw new Error('Boundary mesh files have no common timestamps.');
-        return { frames, note: 'Aligned ' + frames.length + ' common frame(s).' };
+        if (!frames.length) throw new Error('Les fichiers boundary des maillages n’ont aucun pas de temps commun.');
+        return { frames, note: frames.length + ' pas de temps communs alignés.' };
     }
 
     // ── Patch geometry on FDS mesh surfaces ─────────────────────────────────
@@ -373,8 +373,8 @@
 
             const smv = files.find(f => /\.smv$/i.test(f.name));
             const fds = files.find(f => /\.fds$/i.test(f.name));
-            if (!smv) throw new Error('No .smv file in folder.');
-            if (!fds) throw new Error('No .fds file in folder.');
+            if (!smv) throw new Error('Aucun fichier .smv dans le dossier.');
+            if (!fds) throw new Error('Aucun fichier .fds dans le dossier (nécessaire pour les boundaries).');
 
             this.smvContext = parseSmvForBoundary(await smv.text(), smv.name);
             this.fdsContext = parseFdsForBoundary(await fds.text(), fds.name);
@@ -392,17 +392,17 @@
         }
 
         async loadSet(key, setStatus) {
-            if (!this.smvContext) throw new Error('No boundary folder loaded.');
+            if (!this.smvContext) throw new Error('Aucun dossier boundary chargé.');
             // Generation token to discard stale concurrent loads.
             const gen = (this._loadGen = (this._loadGen || 0) + 1);
             if (!this.loadedGroups.has(key)) {
                 const group = this.smvContext.boundaryGroups.get(key);
-                if (!group) throw new Error('Boundary group not found: ' + key);
+                if (!group) throw new Error('Groupe boundary introuvable : ' + key);
                 const entries = [];
                 for (let i = 0; i < group.entries.length; i++) {
                     const e = group.entries[i];
                     const file = this.fileMap.get(e.fileName.toLowerCase());
-                    if (!file) throw new Error('Missing boundary file: ' + e.fileName);
+                    if (!file) throw new Error('Fichier boundary manquant : ' + e.fileName);
                     if (setStatus) setStatus('Loading ' + e.fileName + ' (' + (i + 1) + ' of ' + group.entries.length + ')...');
                     const dataset = FdsBoundaryReader.parse(await file.arrayBuffer(), e.fileName);
                     if (gen !== this._loadGen) return { frameCount: 0, note: 'cancelled' };

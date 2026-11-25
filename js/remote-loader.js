@@ -111,11 +111,11 @@
         const low = detail.toLowerCase();
         let msg;
         if (res.status === 404) {
-            msg = 'Introuvable. Vérifie que le dossier Google Drive est partagé en « Tous les utilisateurs disposant du lien ».';
+            msg = 'Introuvable. Vérifiez que le dossier Google Drive est partagé en « Tous les utilisateurs disposant du lien ».';
         } else if (res.status === 403 && /referer|referrer/.test(low)) {
-            msg = 'La clé API Google refuse ce site. Ajoute son adresse dans les restrictions de la clé (console Google Cloud).';
+            msg = 'La clé API Google refuse ce site. Ajoutez son adresse dans les restrictions de la clé (console Google Cloud).';
         } else if (res.status === 403 && /quota|rate|exceeded/.test(low)) {
-            msg = 'Google Drive limite temporairement les téléchargements de ce fichier. Réessaie un peu plus tard.';
+            msg = 'Google Drive limite temporairement les téléchargements de ce fichier. Réessayez un peu plus tard.';
         } else if ((res.status === 400 || res.status === 403) && /api key|key not valid|disabled|has not been used/.test(low)) {
             msg = 'Clé API Google invalide ou API Drive non activée sur le projet Google Cloud.';
         } else if (res.status === 403) {
@@ -190,7 +190,7 @@
         const meta = await driveJson(DRIVE_API + '/' + encodeURIComponent(folderId) +
             '?fields=id,name,mimeType&supportsAllDrives=true&key=' + encodeURIComponent(key));
         if (meta.mimeType !== FOLDER_MIME) {
-            throw new Error('Ce lien ne pointe pas vers un dossier Google Drive. Partage le dossier de résultats complet, pas un fichier.');
+            throw new Error('Ce lien ne pointe pas vers un dossier Google Drive. Partagez le dossier de résultats complet, pas un fichier.');
         }
         const files = [];
         async function walk(id, depth) {
@@ -325,10 +325,10 @@
             }
             const { title, files } = listing;
             setTitle(title);
-            document.title = title + ' · FDS Viewer';
+            document.title = title + ' · Visionneuse FDS';
 
             if (!files.some(f => /\.smv$/i.test(f.name))) {
-                throw new Error('Aucun fichier .smv dans ce dossier. Dépose le dossier de résultats FDS complet (.smv, .s3d, .sf, .bf…).');
+                throw new Error('Aucun fichier .smv dans ce dossier. Déposez le dossier de résultats FDS complet (.smv, .s3d, .sf, .bf…).');
             }
 
             // 1. Geometry from the .fds input (3D page + greyscale scene).
@@ -394,9 +394,9 @@
             '    <button type="button" class="rl-x" aria-label="Fermer">&times;</button>' +
             '  </div>' +
             '  <ol class="rl-steps">' +
-            '    <li>Dépose le <strong>dossier de résultats FDS</strong> complet dans ton Google Drive.</li>' +
-            '    <li>Partage-le en <strong>« Tous les utilisateurs disposant du lien »</strong> (lecteur).</li>' +
-            '    <li>Colle ici le lien du dossier :</li>' +
+            '    <li>Déposez le <strong>dossier de résultats FDS</strong> complet dans Google Drive.</li>' +
+            '    <li>Partagez-le en <strong>« Tous les utilisateurs disposant du lien »</strong> (lecteur).</li>' +
+            '    <li>Collez ici le lien du dossier :</li>' +
             '  </ol>' +
             '  <input type="text" class="rl-input" id="rl-drive-input" placeholder="https://drive.google.com/drive/folders/…" autocomplete="off" spellcheck="false">' +
             '  <div class="rl-hint" id="rl-drive-hint"></div>' +
@@ -406,7 +406,7 @@
             '    <button type="button" class="btn btn-sm btn-primary" id="rl-copy" disabled>Copier</button>' +
             '  </div>' +
             '  <div class="rl-modal-foot">' +
-            '    <span class="rl-warn">' + (CFG.driveApiKey ? '' : '⚠ Clé API Google non configurée (js/config.js) : les liens ne s’ouvriront pas encore.') + '</span>' +
+            '    <span class="rl-warn">' + (CFG.driveApiKey ? '' : '⚠ Clé API Google non configurée (js/config.js) : les liens ne s’ouvriront pas.') + '</span>' +
             '    <a class="btn btn-sm btn-secondary" id="rl-open" href="#" target="_blank" rel="noopener" aria-disabled="true">Ouvrir</a>' +
             '  </div>' +
             '</div>';
@@ -422,7 +422,7 @@
             const raw = input.value.trim();
             const id = extractDriveId(raw);
             if (!raw) { hint.textContent = ''; out.value = currentShareLink; }
-            else if (!id) { hint.textContent = 'Lien non reconnu : colle le lien d’un dossier Google Drive.'; out.value = ''; }
+            else if (!id) { hint.textContent = 'Lien non reconnu : collez le lien d’un dossier Google Drive.'; out.value = ''; }
             else { hint.textContent = ''; out.value = shareLinkForDrive(id); }
             const ok = !!out.value;
             copy.disabled = !ok;

@@ -32,7 +32,7 @@ function buildMeshPanel(data) {
     const dStarText = dStar ? `${dStar.toFixed(2)} m` : '—';
     const peakText = fireInfo.peakHRR > 0
         ? (fireInfo.peakHRR >= 1000 ? `${(fireInfo.peakHRR / 1000).toFixed(2)} MW` : `${fireInfo.peakHRR.toFixed(0)} kW`)
-        : 'No HRR estimate';
+        : 'Pas d’estimation du HRR';
     const ratioRangeText = ratioValues.length
         ? `${Math.min(...ratioValues).toFixed(1)} – ${Math.max(...ratioValues).toFixed(1)}`
         : '—';
@@ -42,76 +42,76 @@ function buildMeshPanel(data) {
     const ifaceHtml = ifaceIssues.length ? `
         <div class="fp-mesh-iface-warn">
             <div class="fp-section-label fp-section-warn">
-                ⚠ Mesh Interface Compatibility (${ifaceIssues.length} issue${ifaceIssues.length !== 1 ? 's' : ''})
+                ⚠ Compatibilité aux interfaces de maillage (${ifaceIssues.length} problème${ifaceIssues.length !== 1 ? 's' : ''})
             </div>
             <table class="fp-prop-table">
                 ${ifaceIssues.map(iss => `<tr>
                     <td><strong class="fp-text-warn">${esc(iss.meshA)}</strong> ↔ <strong class="fp-text-warn">${esc(iss.meshB)}</strong></td>
-                    <td>${esc(iss.axis)}-face · d${esc(iss.dim.toLowerCase())} ratio <strong class="fp-text-warn">${iss.ratio.toFixed(1)}×</strong>
+                    <td>${esc(iss.axis)} (face) · rapport d${esc(iss.dim.toLowerCase())} <strong class="fp-text-warn">${iss.ratio.toFixed(1)}×</strong>
                         <span class="fp-note-sm">(${meshFmtLength(iss.cellA)} vs ${meshFmtLength(iss.cellB)})</span>
                     </td>
                 </tr>`).join('')}
             </table>
             <p class="fp-note fp-note-tight">
-                FDS requires cell sizes at abutting mesh boundaries to be within a 2:1 ratio for accurate interpolation. Larger ratios can cause mass-conservation errors at the interface.
+                FDS demande que les tailles de cellules de part et d’autre d’une interface entre maillages restent dans un rapport de 2:1 pour une interpolation correcte. Au-delà, des erreurs de conservation de la masse peuvent apparaître à l’interface.
             </p>
         </div>` : '';
 
     wrap.innerHTML = `
         <div class="fp-card fp-mesh-card">
             <div class="fp-card-title">
-                Mesh Resolution &amp; Parallel Setup
-                <button class="fp-copy-btn" id="fp-copy-mesh">Copy summary</button>
+                Résolution des maillages &amp; calcul parallèle
+                <button class="fp-copy-btn" id="fp-copy-mesh">Copier le résumé</button>
             </div>
             <div class="fp-mesh-summary">
                 <div class="fp-mesh-metric">
-                    <span class="fp-ov-lbl">Meshes</span>
+                    <span class="fp-ov-lbl">Maillages</span>
                     <strong>${meshInfo.rows.length}</strong>
                 </div>
                 <div class="fp-mesh-metric">
-                    <span class="fp-ov-lbl">Total Cells</span>
+                    <span class="fp-ov-lbl">Cellules au total</span>
                     <strong>${meshFormatCells(meshInfo.totalCells)}</strong>
                 </div>
                 <div class="fp-mesh-metric">
-                    <span class="fp-ov-lbl">Cell Range</span>
+                    <span class="fp-ov-lbl">Plage de tailles de cellule</span>
                     <strong>${meshInfo.rows.length ? `${meshFmtLength(meshInfo.minCell)} – ${meshFmtLength(meshInfo.maxCell)}` : '—'}</strong>
                 </div>
                 <div class="fp-mesh-metric">
-                    <span class="fp-ov-lbl">MPI Load Imbalance</span>
+                    <span class="fp-ov-lbl">Déséquilibre de charge MPI</span>
                     <strong${imbalance.ok ? '' : ' class="fp-text-warn"'}>${imbalance.text}</strong>
                 </div>
                 <div class="fp-mesh-metric">
-                    <span class="fp-ov-lbl">Peak HRR Used</span>
+                    <span class="fp-ov-lbl">HRR max. retenu</span>
                     <strong>${peakText}</strong>
                 </div>
                 <div class="fp-mesh-metric">
-                    <span class="fp-ov-lbl">Characteristic Fire Diameter</span>
+                    <span class="fp-ov-lbl">Diamètre caractéristique du feu</span>
                     <strong>${dStarText}</strong>
                 </div>
                 <div class="fp-mesh-metric">
-                    <span class="fp-ov-lbl">D*/dx Range</span>
+                    <span class="fp-ov-lbl">Plage D*/dx</span>
                     <strong>${ratioRangeText}</strong>
                 </div>
             </div>
 
             <div class="fp-note">
                 ${fireInfo.peakHRR > 0
-                    ? 'D* is estimated here from detected fire HRR using ambient temperature from <code>&amp;MISC TMPA</code> when present.'
-                    : 'D* needs an estimated heat release rate from inputs such as <code>HRRPUA</code> on linked vents or volumetric <code>HRRPUV</code>.'}
+                    ? 'D* est estimé ici à partir du HRR des foyers détectés, avec la température ambiante de <code>&amp;MISC TMPA</code> si elle est renseignée.'
+                    : 'D* nécessite une estimation de la puissance dégagée, par exemple via <code>HRRPUA</code> sur des vents ou un <code>HRRPUV</code> volumique.'}
             </div>
 
             <div class="fp-grid-2 fp-mesh-thresholds">
                 <div>
-                    <div class="fp-section-label">Classic D*/dx Thresholds</div>
+                    <div class="fp-section-label">Seuils D*/dx usuels</div>
                     <table class="fp-prop-table">
-                        <tr><td>Below coarse</td><td><strong>&lt; 4</strong></td></tr>
-                        <tr><td>Coarse</td><td><strong>4 to &lt; 10</strong></td></tr>
-                        <tr><td>Medium</td><td><strong>10 to &lt; 16</strong></td></tr>
-                        <tr><td>Fine</td><td><strong>≥ 16</strong></td></tr>
+                        <tr><td>Sous grossier</td><td><strong>&lt; 4</strong></td></tr>
+                        <tr><td>Grossier</td><td><strong>4 à &lt; 10</strong></td></tr>
+                        <tr><td>Moyen</td><td><strong>10 à &lt; 16</strong></td></tr>
+                        <tr><td>Fin</td><td><strong>≥ 16</strong></td></tr>
                     </table>
                 </div>
                 <div>
-                    <div class="fp-section-label">Where This Model Sits</div>
+                    <div class="fp-section-label">Situation de ce modèle</div>
                     <table class="fp-prop-table">
                         ${ratioSummary}
                     </table>
@@ -121,9 +121,9 @@ function buildMeshPanel(data) {
             <div class="fp-table-wrap">
                 <table class="fp-source-table fp-mesh-table">
                     <thead><tr>
-                        <th>Mesh</th><th>IJK</th><th>Cell Size dx × dy × dz</th><th>Nominal dx</th><th>D*/dx</th><th>MPI_PROCESS</th>
+                        <th>Maillage</th><th>IJK</th><th>Taille de cellule dx × dy × dz</th><th>dx nominal</th><th>D*/dx</th><th>MPI_PROCESS</th>
                     </tr></thead>
-                    <tbody>${resolutionRows || '<tr><td colspan="6">No &amp;MESH records found.</td></tr>'}</tbody>
+                    <tbody>${resolutionRows || '<tr><td colspan="6">Aucune ligne &amp;MESH trouvée.</td></tr>'}</tbody>
                 </table>
             </div>
 
@@ -133,25 +133,25 @@ function buildMeshPanel(data) {
                 <div>
                     <div class="fp-section-label">MPI</div>
                     <table class="fp-prop-table">
-                        <tr><td>MPI_PROCESS assignments</td><td>${mpiInfo.assignmentText}</td></tr>
-                        <tr><td>Suggested MPI ranks</td><td>${mpiInfo.rankText}</td></tr>
+                        <tr><td>Affectations MPI_PROCESS</td><td>${mpiInfo.assignmentText}</td></tr>
+                        <tr><td>Nombre de rangs MPI conseillé</td><td>${mpiInfo.rankText}</td></tr>
                     </table>
                 </div>
                 <div>
                     <div class="fp-section-label">OpenMP</div>
                     <table class="fp-prop-table">
-                        <tr><td>Thread setting</td><td>${ompInfo.settingText}</td></tr>
-                        <tr><td>Note</td><td>${ompInfo.note}</td></tr>
+                        <tr><td>Réglage des threads</td><td>${ompInfo.settingText}</td></tr>
+                        <tr><td>Remarque</td><td>${ompInfo.note}</td></tr>
                     </table>
                 </div>
             </div>
 
-            ${codeBlock('FDS &MESH code', (data.meshes || []).map(rawOf))}
+            ${codeBlock('Code FDS &MESH', (data.meshes || []).map(rawOf))}
 
             <div class="fp-note fp-bottom-note">
-                Characteristic fire diameter and <strong>D*/dx</strong> are useful starting checks, but they do not prove that a
-                mesh is appropriate. Confirm mesh size with a sensitivity analysis for the quantities that matter in the case.
-                <a href="https://fdstutorial.com/fds-mesh-sensitivity-analysis-example/" target="_blank" rel="noopener">Mesh sensitivity analysis tutorial</a>.
+                Le diamètre caractéristique du feu et le rapport <strong>D*/dx</strong> sont de bons premiers contrôles, mais ne prouvent pas que le
+                maillage est adapté. Confirmez la taille de maille par une étude de sensibilité sur les grandeurs utiles au cas.
+                <a href="https://fdstutorial.com/fds-mesh-sensitivity-analysis-example/" target="_blank" rel="noopener">Tutoriel d’étude de sensibilité au maillage</a> (en anglais).
             </div>
         </div>`;
 
@@ -160,31 +160,31 @@ function buildMeshPanel(data) {
     if (copyBtn) {
         copyBtn.addEventListener('click', () => {
             const lines = [
-                `FDS Mesh Summary`,
-                `================`,
-                `Meshes       : ${meshInfo.rows.length}`,
-                `Total cells  : ${meshFormatCells(meshInfo.totalCells)}`,
-                `Cell range   : ${meshFmtLength(meshInfo.minCell)} – ${meshFmtLength(meshInfo.maxCell)}`,
-                `Load imbal.  : ${imbalance.text}`,
-                `Peak HRR     : ${peakText}`,
-                `D*           : ${dStarText}`,
-                `D*/dx range  : ${ratioRangeText}`,
+                `Résumé des maillages FDS`,
+                `========================`,
+                `Maillages      : ${meshInfo.rows.length}`,
+                `Cellules       : ${meshFormatCells(meshInfo.totalCells)}`,
+                `Tailles        : ${meshFmtLength(meshInfo.minCell)} – ${meshFmtLength(meshInfo.maxCell)}`,
+                `Déséquilibre   : ${imbalance.text}`,
+                `HRR max.       : ${peakText}`,
+                `D*             : ${dStarText}`,
+                `Plage D*/dx    : ${ratioRangeText}`,
                 ``,
-                `Per-mesh breakdown:`,
+                `Détail par maillage :`,
                 meshInfo.rows.map(r =>
                     `  ${r.id}: IJK=${r.ijk.join('×')}  dx=${r.cellX.toFixed(4)} dy=${r.cellY.toFixed(4)} dz=${r.cellZ.toFixed(4)} m  nominal=${r.nominalCell.toFixed(4)} m`
                 ).join('\n'),
-                ifaceIssues.length ? `\nInterface issues:\n` + ifaceIssues.map(iss =>
-                    `  ${iss.meshA} ↔ ${iss.meshB}: ${iss.axis}-face d${iss.dim.toLowerCase()} ratio ${iss.ratio.toFixed(1)}×`
+                ifaceIssues.length ? `\nProblèmes aux interfaces :\n` + ifaceIssues.map(iss =>
+                    `  ${iss.meshA} ↔ ${iss.meshB}: face ${iss.axis}, rapport d${iss.dim.toLowerCase()} ${iss.ratio.toFixed(1)}×`
                 ).join('\n') : '',
             ].filter(l => l !== undefined).join('\n');
 
             navigator.clipboard.writeText(lines).then(() => {
-                copyBtn.textContent = 'Copied!';
-                setTimeout(() => { copyBtn.textContent = 'Copy summary'; }, 1400);
+                copyBtn.textContent = 'Copié !';
+                setTimeout(() => { copyBtn.textContent = 'Copier le résumé'; }, 1400);
             }).catch(() => {
-                copyBtn.textContent = 'Copy failed';
-                setTimeout(() => { copyBtn.textContent = 'Copy summary'; }, 1400);
+                copyBtn.textContent = 'Échec de la copie';
+                setTimeout(() => { copyBtn.textContent = 'Copier le résumé'; }, 1400);
             });
         });
     }
@@ -286,10 +286,10 @@ function meshAnalyzeMPI(meshes) {
         const balanceText = meshDescribeCellBalance(meshes || []);
         return {
             assignmentText: meshCount > 1
-                ? `Implicit MPI: no explicit <code>MPI_PROCESS</code> values, but ${meshCount} mesh domains are available for MPI distribution.`
-                : 'No explicit <code>MPI_PROCESS</code> values.',
+                ? `MPI implicite : aucun <code>MPI_PROCESS</code> explicite, mais ${meshCount} maillages peuvent être répartis entre processus MPI.`
+                : 'Aucune valeur <code>MPI_PROCESS</code> explicite.',
             rankText: meshCount > 1
-                ? `Use up to ${meshCount} rank${meshCount !== 1 ? 's' : ''} for one mesh per rank; fewer ranks will group meshes per rank. ${balanceText}`
+                ? `Jusqu’à ${meshCount} rang${meshCount !== 1 ? 's' : ''} pour un maillage par rang ; avec moins de rangs, les maillages sont regroupés. ${balanceText}`
                 : '—',
         };
     }
@@ -300,7 +300,7 @@ function meshAnalyzeMPI(meshes) {
 
     return {
         assignmentText: unique.map(v => `<code>${esc(v)}</code>`).join(', '),
-        rankText: `${impliedRanks} rank${impliedRanks !== 1 ? 's' : ''} implied by MPI_PROCESS values`,
+        rankText: `${impliedRanks} rang${impliedRanks !== 1 ? 's' : ''} d’après les valeurs MPI_PROCESS`,
     };
 }
 
@@ -313,10 +313,10 @@ function meshDescribeCellBalance(meshes) {
     const minCells = Math.min(...cellCounts);
     const maxCells = Math.max(...cellCounts);
     if (minCells === maxCells) {
-        return `Cell load is balanced at ${meshFormatCells(minCells)} cells per mesh.`;
+        return `Charge équilibrée : ${meshFormatCells(minCells)} cellules par maillage.`;
     }
 
-    return `Cell load ranges from ${meshFormatCells(minCells)} to ${meshFormatCells(maxCells)} cells per mesh.`;
+    return `Charge de ${meshFormatCells(minCells)} à ${meshFormatCells(maxCells)} cellules par maillage.`;
 }
 
 function meshAnalyzeOpenMP(data) {
@@ -324,13 +324,13 @@ function meshAnalyzeOpenMP(data) {
     if (found) {
         return {
             settingText: `<code>${esc(found.key)}</code> = ${esc(found.value)}`,
-            note: 'Thread count appears in the FDS input.',
+            note: 'Le nombre de threads figure dans le fichier FDS.',
         };
     }
 
     return {
-        settingText: 'Not specified in FDS input',
-        note: 'OpenMP is normally controlled outside the .fds file, for example with OMP_NUM_THREADS or the run script.',
+        settingText: 'Non précisé dans le fichier FDS',
+        note: 'OpenMP se règle normalement hors du fichier .fds, par exemple avec OMP_NUM_THREADS ou le script de lancement.',
     };
 }
 
@@ -399,15 +399,15 @@ function meshResolutionBadge(ratio) {
 }
 
 function meshResolutionCategory(ratio) {
-    if (ratio < 4)  return { key: 'below',  label: 'Below coarse', cls: 'fp-badge-res-bad' };
-    if (ratio < 10) return { key: 'coarse', label: 'Coarse',       cls: 'fp-badge-res-coarse' };
-    if (ratio < 16) return { key: 'medium', label: 'Medium',       cls: 'fp-badge-res-medium' };
-    return             { key: 'fine',   label: 'Fine',         cls: 'fp-badge-res-fine' };
+    if (ratio < 4)  return { key: 'below',  label: 'Sous grossier', cls: 'fp-badge-res-bad' };
+    if (ratio < 10) return { key: 'coarse', label: 'Grossier',     cls: 'fp-badge-res-coarse' };
+    if (ratio < 16) return { key: 'medium', label: 'Moyen',        cls: 'fp-badge-res-medium' };
+    return             { key: 'fine',   label: 'Fin',          cls: 'fp-badge-res-fine' };
 }
 
 function meshResolutionSummary(ratios) {
     if (!ratios.length) {
-        return '<tr><td>D*/dx classification</td><td>Not available without an HRR estimate</td></tr>';
+        return '<tr><td>Classement D*/dx</td><td>Indisponible sans estimation du HRR</td></tr>';
     }
 
     const counts = { below: 0, coarse: 0, medium: 0, fine: 0 };
@@ -416,11 +416,11 @@ function meshResolutionSummary(ratios) {
     });
 
     return [
-        ['Below coarse', counts.below],
-        ['Coarse', counts.coarse],
-        ['Medium', counts.medium],
-        ['Fine', counts.fine],
-    ].map(([label, count]) => `<tr><td>${label}</td><td>${count} mesh${count !== 1 ? 'es' : ''}</td></tr>`).join('');
+        ['Sous grossier', counts.below],
+        ['Grossier', counts.coarse],
+        ['Moyen', counts.medium],
+        ['Fin', counts.fine],
+    ].map(([label, count]) => `<tr><td>${label}</td><td>${count} maillage${count !== 1 ? 's' : ''}</td></tr>`).join('');
 }
 
 // ─── Mesh load imbalance ────────────────────────────────────────────────────
@@ -435,7 +435,7 @@ function meshAnalyzeImbalance(meshes) {
         .filter(c => c > 0);
 
     if (cellCounts.length < 2) {
-        return { ratio: 1, ok: true, text: cellCounts.length === 1 ? '—  (single mesh)' : '—' };
+        return { ratio: 1, ok: true, text: cellCounts.length === 1 ? '—  (maillage unique)' : '—' };
     }
 
     const minC = Math.min(...cellCounts);
@@ -444,7 +444,7 @@ function meshAnalyzeImbalance(meshes) {
     return {
         ratio,
         ok: ratio <= 2,
-        text: `${ratio.toFixed(1)}×  (${meshFormatCells(minC)} – ${meshFormatCells(maxC)} cells)`,
+        text: `${ratio.toFixed(1)}×  (${meshFormatCells(minC)} – ${meshFormatCells(maxC)} cellules)`,
     };
 }
 

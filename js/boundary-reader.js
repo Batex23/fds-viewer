@@ -12,11 +12,11 @@ class FdsBoundaryDataset {
 
     getPatchData(frameIndex, patchIndex) {
         const frame = this.frames[frameIndex];
-        if (!frame) throw new Error("Boundary frame index out of range.");
+        if (!frame) throw new Error("Indice de pas de temps boundary hors limites.");
 
         const record = frame.records[patchIndex];
         const patch = this.patches[patchIndex];
-        if (!record || !patch) throw new Error("Boundary patch index out of range.");
+        if (!record || !patch) throw new Error("Indice de patch boundary hors limites.");
 
         const values = new Float32Array(patch.valueCount);
         const view = new DataView(this.arrayBuffer, record.dataOffset, record.dataLength);
@@ -30,7 +30,7 @@ class FdsBoundaryDataset {
                 values[index] = view.getFloat64(index * 8, this.littleEndian);
             }
         } else {
-            throw new Error("Unsupported boundary value width: " + record.bytesPerValue + " bytes.");
+            throw new Error("Taille de valeur boundary non prise en charge : " + record.bytesPerValue + " octets.");
         }
 
         return values;
@@ -40,7 +40,7 @@ class FdsBoundaryDataset {
 class FdsBoundaryReader {
     static parse(arrayBuffer, fileName) {
         if (!(arrayBuffer instanceof ArrayBuffer) || arrayBuffer.byteLength < 96) {
-            throw new Error(fileName + " is too small to be an FDS boundary file.");
+            throw new Error(fileName + " est trop petit pour être un fichier boundary FDS.");
         }
 
         const littleEndian = this._detectEndian(arrayBuffer);
@@ -51,7 +51,7 @@ class FdsBoundaryReader {
         const patchCount = this._readInt(cursor.readRecord(), arrayBuffer, littleEndian);
 
         if (!Number.isInteger(patchCount) || patchCount <= 0 || patchCount > 200000) {
-            throw new Error(fileName + " has an invalid boundary patch count.");
+            throw new Error(fileName + " a un nombre de patchs boundary invalide.");
         }
 
         const patches = [];
@@ -70,7 +70,7 @@ class FdsBoundaryReader {
                 const bytesPerValue = record.length / patch.valueCount;
                 if (!Number.isInteger(bytesPerValue) || (bytesPerValue !== 4 && bytesPerValue !== 8)) {
                     throw new Error(
-                        fileName + " has an unexpected data record length for patch " +
+                        fileName + " a une longueur de données inattendue pour le patch " +
                         (patch.patchIndex + 1) + "."
                     );
                 }
@@ -85,7 +85,7 @@ class FdsBoundaryReader {
             frames.push({ time, records });
         }
 
-        if (!frames.length) throw new Error(fileName + " contains no boundary frames.");
+        if (!frames.length) throw new Error(fileName + " ne contient aucun pas de temps boundary.");
 
         return new FdsBoundaryDataset(
             arrayBuffer,
@@ -103,7 +103,7 @@ class FdsBoundaryReader {
         const big = view.getUint32(0, false);
         if (this._looksLikeFirstRecord(arrayBuffer, little, true)) return true;
         if (this._looksLikeFirstRecord(arrayBuffer, big, false)) return false;
-        throw new Error("Could not detect FDS boundary file byte order.");
+        throw new Error("Impossible de déterminer l’ordre des octets du fichier boundary.");
     }
 
     static _looksLikeFirstRecord(arrayBuffer, length, littleEndian) {
@@ -120,12 +120,12 @@ class FdsBoundaryReader {
     }
 
     static _readInt(record, arrayBuffer, littleEndian) {
-        if (record.length < 4) throw new Error("Boundary integer record is too short.");
+        if (record.length < 4) throw new Error("Enregistrement entier boundary trop court.");
         return new DataView(arrayBuffer, record.payloadOffset, record.length).getInt32(0, littleEndian);
     }
 
     static _readPatch(record, arrayBuffer, littleEndian, patchIndex) {
-        if (record.length < 36) throw new Error("Boundary patch record is too short.");
+        if (record.length < 36) throw new Error("Enregistrement de patch boundary trop court.");
         const view = new DataView(arrayBuffer, record.payloadOffset, record.length);
         const patch = {
             patchIndex,
@@ -144,7 +144,7 @@ class FdsBoundaryReader {
         patch.nj = patch.j2 - patch.j1 + 1;
         patch.nk = patch.k2 - patch.k1 + 1;
         patch.valueCount = patch.ni * patch.nj * patch.nk;
-        if (patch.valueCount <= 0) throw new Error("Boundary patch has invalid index bounds.");
+        if (patch.valueCount <= 0) throw new Error("Patch boundary avec des bornes d’indices invalides.");
         return patch;
     }
 
@@ -152,7 +152,7 @@ class FdsBoundaryReader {
         const view = new DataView(arrayBuffer, record.payloadOffset, record.length);
         if (record.length === 4) return view.getFloat32(0, littleEndian);
         if (record.length === 8) return view.getFloat64(0, littleEndian);
-        throw new Error("Unexpected boundary time record length: " + record.length + " bytes.");
+        throw new Error("Longueur inattendue de l’enregistrement de temps boundary : " + record.length + " octets.");
     }
 }
 
@@ -170,7 +170,7 @@ class BoundaryRecordCursor {
 
     readRecord() {
         if (this.offset + 8 > this.arrayBuffer.byteLength) {
-            throw new Error("Unexpected end of boundary file.");
+            throw new Error("Fin inattendue du fichier boundary.");
         }
 
         const length = this.view.getUint32(this.offset, this.littleEndian);
@@ -179,12 +179,12 @@ class BoundaryRecordCursor {
         const trailerOffset = payloadEnd;
 
         if (length <= 0 || trailerOffset + 4 > this.arrayBuffer.byteLength) {
-            throw new Error("Invalid boundary record length at byte " + this.offset + ".");
+            throw new Error("Longueur d’enregistrement boundary invalide à l’octet " + this.offset + ".");
         }
 
         const trailer = this.view.getUint32(trailerOffset, this.littleEndian);
         if (trailer !== length) {
-            throw new Error("Boundary Fortran record marker mismatch at byte " + this.offset + ".");
+            throw new Error("Marqueur d’enregistrement Fortran boundary incohérent à l’octet " + this.offset + ".");
         }
 
         this.offset = trailerOffset + 4;

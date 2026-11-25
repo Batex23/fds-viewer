@@ -411,19 +411,19 @@
     }
 
     function slicePlaneLabel(indices) {
-        if (!indices) return 'unknown plane';
-        if (indices.i1 === indices.i2) return 'YZ plane, X index ' + indices.i1;
-        if (indices.j1 === indices.j2) return 'XZ plane, Y index ' + indices.j1;
-        if (indices.k1 === indices.k2) return 'XY plane, Z index ' + indices.k1;
-        return '3D slice volume';
+        if (!indices) return 'plan inconnu';
+        if (indices.i1 === indices.i2) return 'plan YZ, indice X ' + indices.i1;
+        if (indices.j1 === indices.j2) return 'plan XZ, indice Y ' + indices.j1;
+        if (indices.k1 === indices.k2) return 'plan XY, indice Z ' + indices.k1;
+        return 'volume 3D';
     }
 
     function sliceGroupLabel(group) {
         const header = group.header;
         const missing = group.missing ? group.missing.length : 0;
-        const fileCount = (missing ? group.items.length + ' of ' + (group.items.length + missing) + ' files'
-            : group.items.length + ' file' + (group.items.length === 1 ? '' : 's'));
-        const slice = 'Slice ' + group.sliceIndex + (group.unlisted ? ' (not in .smv)' : '');
+        const fileCount = (missing ? group.items.length + ' sur ' + (group.items.length + missing) + ' fichiers'
+            : group.items.length + ' fichier' + (group.items.length === 1 ? '' : 's'));
+        const slice = 'Slice ' + group.sliceIndex + (group.unlisted ? ' (absent du .smv)' : '');
         if (!header) return group.chid + ' | ' + slice + ' | ' + fileCount;
         const quantity = header.quantity || 'Slice';
         const units = header.units ? ' (' + header.units + ')' : '';
@@ -631,12 +631,12 @@
             frames.push(parts[0].dataset.frames[fi]);
             for (let pi = 0; pi < parts.length; pi++) frameMaps[pi].push(maps[pi].get(key));
         }
-        if (frames.length === 0) throw new Error('Selected slice files have no common time frames.');
+        if (frames.length === 0) throw new Error('Les fichiers slice choisis n’ont aucun pas de temps commun.');
         for (let pi = 0; pi < parts.length; pi++) parts[pi].frameMap = frameMaps[pi];
         return {
             frames,
-            note: 'Aligned ' + frames.length + ' common frame(s) from mesh pieces with ' +
-                  Math.min(...counts) + ' to ' + Math.max(...counts) + ' frames.',
+            note: frames.length + ' pas de temps communs alignés (maillages de ' +
+                  Math.min(...counts) + ' à ' + Math.max(...counts) + ' pas de temps).',
         };
     }
 
@@ -674,13 +674,13 @@
     }
 
     function combineSliceDatasets(parts, fdsContext) {
-        if (parts.length === 0) throw new Error('No slice datasets to combine.');
+        if (parts.length === 0) throw new Error('Aucun jeu de slices à assembler.');
         const first = parts[0].dataset;
         // Quantity sanity check
         for (const part of parts) {
             const ds = part.dataset;
             if (ds.quantity !== first.quantity || ds.shortName !== first.shortName)
-                throw new Error('Selected files do not contain the same slice quantity.');
+                throw new Error('Les fichiers choisis ne contiennent pas la même grandeur.');
         }
 
         // ── Physical-aware path ─────────────────────────────────────────
@@ -760,7 +760,7 @@
             const ds = part.dataset;
             for (let i = 0; i < 3; i++)
                 if (i !== axis && ds.dims[i] !== first.dims[i])
-                    throw new Error('Selected slice files are not aligned for simple stitching.');
+                    throw new Error('Les fichiers slice choisis ne sont pas alignés pour un assemblage simple.');
         }
         const frameAlignment = alignPartFrames(parts);
         return {

@@ -231,8 +231,8 @@
          */
         async computeAll(options) {
             const opts = Object.assign({ viewAngle: true, obstructions: true }, options);
-            if (this.waypoints.size === 0) throw new Error('Add at least one waypoint before computing.');
-            if (this.timePoints.length === 0) throw new Error('Set time points before computing.');
+            if (this.waypoints.size === 0) throw new Error('Ajoutez au moins un point avant le calcul.');
+            if (this.timePoints.length === 0) throw new Error('Définissez les instants avant le calcul.');
 
             this._wpCache.clear();
             for (const id of this.waypoints.keys()) this._buildWaypointCache(id, opts);
@@ -512,7 +512,7 @@
                         paint(i + e.nx * j, jetReversed((aset[i + e.nx * srcJ] - t0) / span), 235);
                     }
                 }
-                legend = { mode, min: t0, max: tEnd, label: 'first time not visible / s' };
+                legend = { mode, min: t0, max: tEnd, label: 'premier instant non visible / s' };
             } else {
                 const map = mode === 'aggregated' ? e.getTimeAggVismap(time) : e.getWpAggVismap(time);
                 const green = [46, 204, 64], red = [220, 53, 47];
@@ -522,7 +522,7 @@
                         paint(i + e.nx * j, map[i + e.nx * srcJ] ? green : red, 235);
                     }
                 }
-                legend = { mode, label: mode === 'aggregated' ? 'visible at all times' : 'visible' };
+                legend = { mode, label: mode === 'aggregated' ? 'visible à tout instant' : 'visible' };
             }
 
             // Obstructed cells shown neutral gray so walls read as walls.
