@@ -48,6 +48,7 @@
         player: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor"/>',
         info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
         target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/>',
+        drive: '<path d="M8.5 4h7l6 10.5-3.5 6h-11L3.5 14.5z"/><path d="M8.5 4l6.5 11h7M15.5 4L9 15H2.5M5.5 19.5L12 9"/>',
         plus: '<path d="M12 5v14M5 12h14"/>',
     };
     const icon = (name, cls) => `<svg class="${cls || 'st-ico'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -219,9 +220,10 @@
             </div>
             <section class="st-empty st-glass" hidden>
                 <h1>Ouvrir une simulation</h1>
-                <p>Choisissez le dossier de résultats d’un calcul FDS, ou ouvrez un lien partagé.</p>
+                <p>Choisissez le dossier de résultats d’un calcul FDS dans votre Google Drive ou sur cet ordinateur, ou ouvrez un lien partagé.</p>
                 <div class="st-empty-actions">
-                    <button type="button" class="st-btn st-btn-primary" data-act="open-folder">${icon('folder')} Dossier de résultats <small>.smv, .s3d, .sf…</small></button>
+                    <button type="button" class="st-btn st-btn-primary" data-act="open-drive">${icon('drive')} Depuis Google Drive <small>connexion Google</small></button>
+                    <button type="button" class="st-btn" data-act="open-folder">${icon('folder')} Dossier sur cet ordinateur <small>.smv, .s3d, .sf…</small></button>
                     <button type="button" class="st-btn" data-act="open-fds">${icon('file')} Fichier .fds seul <small>géométrie</small></button>
                     <button type="button" class="st-btn st-btn-ghost" data-act="open-sample">${icon('flame')} Voir l’exemple</button>
                 </div>
@@ -284,7 +286,8 @@
         const openBtn = mk(icon('folder', 'st-ico-sm') + '<span>Ouvrir</span>', 'btn-secondary st-topbtn st-only', 'Ouvrir une simulation');
         openBtn.id = 'st-open-btn';
         openBtn.addEventListener('click', () => openMenu(openBtn, [
-            { icon: 'folder', label: 'Dossier de résultats FDS', sub: 'Fumée, plans de coupe, parois, courbes', act: 'open-folder' },
+            { icon: 'drive', label: 'Depuis Google Drive', sub: 'Mon Drive, partagés avec moi, Drives partagés', act: 'open-drive' },
+            { icon: 'folder', label: 'Dossier sur cet ordinateur', sub: 'Fumée, plans de coupe, parois, courbes', act: 'open-folder' },
             { icon: 'file', label: 'Fichier .fds seul', sub: 'Géométrie, sans résultats', act: 'open-fds' },
             { icon: 'flame', label: 'Simulation d’exemple', act: 'open-sample' },
         ]));
@@ -333,6 +336,10 @@
 
     let folderInput;
     function openAction(act) {
+        if (act === 'open-drive') {
+            if (window.FDSRemote && window.FDSRemote.pickFromDrive) window.FDSRemote.pickFromDrive();
+            return;
+        }
         if (act === 'open-folder') {
             if (!folderInput) {
                 folderInput = document.createElement('input');

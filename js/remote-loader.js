@@ -54,6 +54,136 @@
         return viewerBaseUrl() + '?drive=' + encodeURIComponent(folderId);
     }
 
+    // ── Connexion Google (accès aux dossiers privés + sélecteur Drive) ────
+    // Avec un jeton OAuth, la visionneuse lit les dossiers auxquels la
+    // personne connectée a accès (Mon Drive, partagés avec moi, Drives
+    // partagés), sans partage public. Sans jeton : clé API seule, donc
+    // dossiers partagés « Tous les utilisateurs disposant du lien ».
+    const GSI_SRC = 'https://accounts.google.com/gsi/client';
+    const GAPI_SRC = 'https://apis.google.com/js/api.js';
+    const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+    const auth = { token: null, expires: 0, client: null, pickerReady: null };
+
+    const hasOAuth = () => !!CFG.googleClientId;
+    const tokenValid = () => !!auth.token && Date.now() < auth.expires;
+    function authHeaders(extra) {
+        const h = Object.assign({}, extra || {});
+        if (tokenValid()) h.Authorization = 'Bearer ' + auth.token;
+        return h;
+    }
+    function keyParam(key) {
+        // Avec un jeton, la clé est inutile (et pourrait être refusée par
+        // ses restrictions) : on ne l'envoie que sans connexion.
+        return (!tokenValid() && key) ? '&key=' + encodeURIComponent(key) : '';
+    }
+
+    const scripts = {};
+    function loadScript(src) {
+        if (!scripts[src]) {
+            scripts[src] = new Promise((resolve, reject) => {
+                const el = document.createElement('script');
+                el.src = src; el.async = true; el.defer = true;
+                el.onload = resolve;
+                el.onerror = () => { delete scripts[src]; reject(new Error('Impossible de charger ' + src)); };
+                document.head.appendChild(el);
+            });
+        }
+        return scripts[src];
+    }
+
+    /** Précharge les scripts Google : la fenêtre de connexion doit s'ouvrir
+     *  directement dans le clic, sans attente réseau intermédiaire. */
+    function preloadGoogle() {
+        if (!hasOAuth()) return;
+        loadScript(GSI_SRC).catch(() => {});
+        if (!auth.pickerReady) {
+            auth.pickerReady = loadScript(GAPI_SRC)
+                .then(() => new Promise(res => window.gapi.load('picker', res)))
+                .catch(e => { auth.pickerReady = null; throw e; });
+            auth.pickerReady.catch(() => {});
+        }
+    }
+
+    function signIn() {
+        return new Promise((resolve, reject) => {
+            if (!hasOAuth()) {
+                reject(new Error('La connexion Google n’est pas configurée pour ce site (identifiant client OAuth manquant dans js/config.js).'));
+                return;
+            }
+            if (tokenValid()) { resolve(auth.token); return; }
+            const go = () => {
+                try {
+                    if (!auth.client) {
+                        auth.client = window.google.accounts.oauth2.initTokenClient({
+                            client_id: CFG.googleClientId,
+                            scope: SCOPE,
+                            callback: () => {},
+                        });
+                    }
+                    auth.client.callback = r => {
+                        if (r && r.access_token) {
+                            auth.token = r.access_token;
+                            auth.expires = Date.now() + Math.max(60, (Number(r.expires_in) || 3600) - 60) * 1000;
+                            resolve(auth.token);
+                        } else {
+                            reject(new Error('Connexion Google refusée' + (r && r.error ? ' (' + r.error + ')' : '') + '.'));
+                        }
+                    };
+                    auth.client.error_callback = e => {
+                        const t = e && e.type;
+                        reject(new Error(t === 'popup_closed' ? 'Fenêtre de connexion fermée.'
+                            : t === 'popup_failed_to_open' ? 'La fenêtre de connexion a été bloquée : autorisez les fenêtres pop-up pour ce site.'
+                            : 'Connexion Google impossible.'));
+                    };
+                    auth.client.requestAccessToken({ prompt: auth.token ? '' : 'select_account' });
+                } catch (e) { reject(e); }
+            };
+            if (window.google && window.google.accounts && window.google.accounts.oauth2) go();
+            else loadScript(GSI_SRC).then(go, reject);
+        });
+    }
+
+    /** Ouvre le sélecteur Google Drive et charge le dossier choisi. */
+    async function pickFromDrive() {
+        try {
+            preloadGoogle();
+            await signIn();
+            await auth.pickerReady;
+            const P = window.google.picker;
+            const folderView = () => new P.DocsView(P.ViewId.FOLDERS)
+                .setIncludeFolders(true)
+                .setSelectFolderEnabled(true)
+                .setMimeTypes(FOLDER_MIME);
+            const label = (v, txt) => (typeof v.setLabel === 'function' ? v.setLabel(txt) : v);
+            const mine = label(folderView().setOwnedByMe(true), 'Mon Drive');
+            const shared = label(folderView().setOwnedByMe(false), 'Partagés avec moi');
+            const drives = label(folderView().setEnableDrives(true), 'Drives partagés');
+            const builder = new P.PickerBuilder()
+                .setTitle('Choisissez le dossier de résultats FDS')
+                .setLocale('fr')
+                .setOAuthToken(auth.token)
+                .enableFeature(P.Feature.SUPPORT_DRIVES)
+                .addView(mine)
+                .addView(shared)
+                .addView(drives)
+                .setCallback(data => {
+                    if (data[P.Response.ACTION] !== P.Action.PICKED) return;
+                    const doc = (data[P.Response.DOCUMENTS] || [])[0];
+                    if (!doc) return;
+                    const id = doc[P.Document.ID];
+                    try { history.replaceState(null, '', shareLinkForDrive(id)); } catch (_) { /* file:// */ }
+                    openRemote({ kind: 'drive', id, key: CFG.driveApiKey || '' });
+                });
+            if (CFG.driveApiKey) builder.setDeveloperKey(CFG.driveApiKey);
+            if (CFG.googleAppId) builder.setAppId(CFG.googleAppId);
+            builder.setOrigin(window.location.protocol + '//' + window.location.host);
+            builder.build().setVisible(true);
+        } catch (e) {
+            console.error('[drive]', e);
+            if (!/fermée/.test(e.message)) failOverlay(e);
+        }
+    }
+
     // ── Download progress (shared by every remote file) ──────────────────
     const progress = {
         active: new Map(),     // name → { loaded, total }
@@ -68,7 +198,7 @@
     };
 
     async function fetchWithProgress(url, name, expectedSize) {
-        const res = await fetch(url);
+        const res = await fetch(url, { headers: authHeaders() });
         if (!res.ok) throw await httpError(res, name);
         const total = expectedSize || Number(res.headers.get('content-length')) || 0;
         const entry = { loaded: 0, total };
@@ -111,7 +241,9 @@
         const low = detail.toLowerCase();
         let msg;
         if (res.status === 404) {
-            msg = 'Introuvable. Vérifiez que le dossier Google Drive est partagé en « Tous les utilisateurs disposant du lien ».';
+            msg = tokenValid()
+                ? 'Introuvable. Ce dossier n’existe plus ou votre compte Google n’y a pas accès.'
+                : 'Introuvable. Le dossier n’est pas partagé publiquement : connectez-vous avec un compte Google qui y a accès, ou partagez-le en « Tous les utilisateurs disposant du lien ».';
         } else if (res.status === 403 && /referer|referrer/.test(low)) {
             msg = 'La clé API Google refuse ce site. Ajoutez son adresse dans les restrictions de la clé (console Google Cloud).';
         } else if (res.status === 403 && /quota|rate|exceeded/.test(low)) {
@@ -119,7 +251,9 @@
         } else if ((res.status === 400 || res.status === 403) && /api key|key not valid|disabled|has not been used/.test(low)) {
             msg = 'Clé API Google invalide ou API Drive non activée sur le projet Google Cloud.';
         } else if (res.status === 403) {
-            msg = 'Accès refusé par Google Drive. Le dossier et ses fichiers doivent être partagés en « Tous les utilisateurs disposant du lien ».';
+            msg = tokenValid()
+                ? 'Accès refusé par Google Drive pour ce compte.'
+                : 'Accès refusé par Google Drive. Connectez-vous avec un compte Google qui a accès au dossier, ou partagez-le en « Tous les utilisateurs disposant du lien ».';
         } else {
             msg = 'Erreur ' + res.status + ' lors du téléchargement.';
         }
@@ -160,7 +294,7 @@
                 size: Math.max(0, (end == null ? self.size : end) - start),
                 async arrayBuffer() {
                     if (self._buf) return (await self._buf).slice(start, end);
-                    const headers = {};
+                    const headers = authHeaders();
                     if (end != null) headers.Range = 'bytes=' + start + '-' + (end - 1);
                     const res = await fetch(self._url, { headers });
                     if (!res.ok) throw await httpError(res, self.name);
@@ -181,14 +315,14 @@
 
     // ── Sources ───────────────────────────────────────────────────────────
     async function driveJson(url) {
-        const res = await fetch(url);
+        const res = await fetch(url, { headers: authHeaders() });
         if (!res.ok) throw await httpError(res, '');
         return res.json();
     }
 
     async function listDriveFolder(folderId, key) {
         const meta = await driveJson(DRIVE_API + '/' + encodeURIComponent(folderId) +
-            '?fields=id,name,mimeType&supportsAllDrives=true&key=' + encodeURIComponent(key));
+            '?fields=id,name,mimeType&supportsAllDrives=true' + keyParam(key));
         if (meta.mimeType !== FOLDER_MIME) {
             throw new Error('Ce lien ne pointe pas vers un dossier Google Drive. Partagez le dossier de résultats complet, pas un fichier.');
         }
@@ -201,14 +335,14 @@
                     '&fields=' + encodeURIComponent('nextPageToken,files(id,name,size,mimeType)') +
                     '&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true' +
                     (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '') +
-                    '&key=' + encodeURIComponent(key);
+                    keyParam(key);
                 const page = await driveJson(url);
                 for (const f of page.files || []) {
                     if (f.mimeType === FOLDER_MIME) {
                         if (depth < MAX_DEPTH) await walk(f.id, depth + 1);
                     } else if (!/^application\/vnd\.google-apps\./.test(f.mimeType)) {
                         const url = DRIVE_API + '/' + encodeURIComponent(f.id) +
-                            '?alt=media&supportsAllDrives=true&key=' + encodeURIComponent(key);
+                            '?alt=media&supportsAllDrives=true' + keyParam(key);
                         files.push(new RemoteFile(f.name, url, Number(f.size) || 0));
                     }
                 }
@@ -255,10 +389,14 @@
                 '  <div class="rl-bar"><div class="rl-bar-fill"></div></div>' +
                 '  <div class="rl-meta"><span class="rl-file"></span><span class="rl-bytes"></span></div>' +
                 '  <div class="rl-error" hidden></div>' +
-                '  <div class="rl-actions" hidden><button type="button" class="btn btn-sm btn-secondary rl-close">Fermer</button></div>' +
+                '  <div class="rl-actions" hidden><button type="button" class="btn btn-sm btn-primary rl-signin" hidden>Se connecter avec Google</button><button type="button" class="btn btn-sm btn-secondary rl-close">Fermer</button></div>' +
                 '</div>';
             document.body.appendChild(overlay);
             overlay.querySelector('.rl-close').addEventListener('click', hideOverlay);
+            overlay.querySelector('.rl-signin').addEventListener('click', async () => {
+                try { await signIn(); } catch (e) { failOverlay(e); return; }
+                if (lastSource) openRemote(lastSource);
+            });
             progress.listeners.add(renderProgress);
         }
         overlay.classList.remove('rl-failed', 'rl-hidden');
@@ -303,19 +441,25 @@
         box.textContent = err && err.message ? err.message : String(err);
         box.hidden = false;
         overlay.querySelector('.rl-actions').hidden = false;
+        // Dossier privé : proposer la connexion Google puis réessayer.
+        const canSignIn = hasOAuth() && !tokenValid() && lastSource && lastSource.kind === 'drive'
+            && err && (err.status === 403 || err.status === 404);
+        overlay.querySelector('.rl-signin').hidden = !canSignIn;
     }
 
     // ── Main flow ─────────────────────────────────────────────────────────
     let currentShareLink = '';
 
+    let lastSource = null;
     async function openRemote(source) {
+        lastSource = source;
         progress.doneBytes = 0;
         showOverlay('');
         try {
             let listing;
             if (source.kind === 'drive') {
-                if (!source.key) {
-                    throw new Error('Aucune clé API Google n’est configurée pour ce site (js/config.js).');
+                if (!source.key && !tokenValid()) {
+                    throw new Error('Aucune clé API Google n’est configurée pour ce site (js/config.js) : connectez-vous avec Google pour ouvrir le dossier.');
                 }
                 listing = await listDriveFolder(source.id, source.key);
                 currentShareLink = shareLinkForDrive(source.id);
@@ -395,7 +539,9 @@
             '  </div>' +
             '  <ol class="rl-steps">' +
             '    <li>Déposez le <strong>dossier de résultats FDS</strong> complet dans Google Drive.</li>' +
-            '    <li>Partagez-le en <strong>« Tous les utilisateurs disposant du lien »</strong> (lecteur).</li>' +
+            (hasOAuth()
+                ? '    <li>Partagez-le en lecture : <strong>« Tous les utilisateurs disposant du lien »</strong> pour l’ouvrir sans compte, ou <strong>uniquement avec certaines personnes</strong> — elles se connecteront avec leur compte Google.</li>'
+                : '    <li>Partagez-le en <strong>« Tous les utilisateurs disposant du lien »</strong> (lecteur).</li>') +
             '    <li>Collez ici le lien du dossier :</li>' +
             '  </ol>' +
             '  <input type="text" class="rl-input" id="rl-drive-input" placeholder="https://drive.google.com/drive/folders/…" autocomplete="off" spellcheck="false">' +
@@ -472,13 +618,14 @@
     // ── Boot ──────────────────────────────────────────────────────────────
     function boot() {
         addShareButton();
+        preloadGoogle();
         const src = sourceFromUrl();
         if (!src) return;
         if (src.error) { failOverlay(new Error(src.error)); return; }
         openRemote(src);
     }
 
-    window.FDSRemote = { open: openRemote, extractDriveId, shareLinkForDrive, openShare };
+    window.FDSRemote = { open: openRemote, extractDriveId, shareLinkForDrive, openShare, pickFromDrive, signIn, hasOAuth, isSignedIn: tokenValid };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();

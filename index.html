@@ -8,7 +8,7 @@
     <link rel="icon" type="image/png" href="assets/sdis33/favicon-64.png">
     <link rel="apple-touch-icon" href="assets/sdis33/apple-touch-icon.png">
     <link rel="stylesheet" href="css/style.css?v=20261125a">
-    <link rel="stylesheet" href="css/remote.css?v=20261125b">
+    <link rel="stylesheet" href="css/remote.css?v=20261125c">
     <link rel="stylesheet" href="css/sdis33.css?v=20261125b">
     <link rel="stylesheet" href="css/studio.css?v=20261125b">
 </head>
@@ -400,9 +400,12 @@
                         <li>Cliquez sur <strong>Partager</strong> en haut de la page, collez le lien du dossier Drive, puis <em>Copier</em> le lien de la visionneuse.</li>
                     </ol>
                     <p>À l’ouverture du lien, la visionneuse liste le dossier, télécharge le <code>.smv</code> et la géométrie, charge la fumée et prépare les plans de coupe, boundaries et courbes. Les gros fichiers ne sont téléchargés que lorsqu’ils sont affichés.</p>
+                    <h4>Ouvrir depuis Google Drive</h4>
+                    <p>Le bouton <strong>Ouvrir &rarr; Depuis Google Drive</strong> vous connecte avec votre compte Google, puis affiche vos dossiers : Mon Drive, Partagés avec moi et Drives partagés. Choisissez le dossier de résultats : il s’ouvre directement et l’adresse de la page devient le lien de partage.</p>
+                    <p>Une fois connecté, un dossier <strong>non public</strong> s’ouvre aussi : vous pouvez le partager uniquement avec vos collègues dans Google Drive. Ils ouvriront le lien puis cliqueront sur « Se connecter avec Google ». L’accès est en lecture seule.</p>
                     <h4>Bonnes pratiques</h4>
                     <ul>
-                        <li>Toute personne disposant du lien peut voir la simulation : ne partagez que des cas pédagogiques, anonymisés ou validés pour diffusion.</li>
+                        <li>Un dossier partagé « Tous les utilisateurs disposant du lien » est visible par quiconque a le lien. Pour un dossier réel, préférez un partage limité à des personnes nommées.</li>
                         <li>Le lien reste valable tant que le dossier Drive existe. Vous pouvez remplacer un fichier par une nouvelle version sans changer le lien.</li>
                         <li>Pour un cas lourd, privilégiez un pas d’écriture <code>DT_S3D</code> raisonnable : le temps de chargement en dépend directement.</li>
                     </ul>
@@ -1408,7 +1411,7 @@
     <script src="js/output-page.js?v=20261125d"></script>
     <script src="js/app.js?v=20261125d"></script>
     <script src="js/config.js?v=20261125c"></script>
-    <script src="js/remote-loader.js?v=20261125c"></script>
-    <script src="js/studio.js?v=20261125b"></script>
+    <script src="js/remote-loader.js?v=20261125d"></script>
+    <script src="js/studio.js?v=20261125c"></script>
 </body>
 </html>

@@ -208,3 +208,4 @@
 .rl-warn { font-size: var(--fs-sm); color: var(--warning-text, #c08000); }
 .rl-modal-foot .btn { text-decoration: none; color: var(--text-primary); }
 .rl-modal-foot .btn[aria-disabled="true"] { opacity: var(--disabled-opacity); pointer-events: none; }
+.rl-actions:not([hidden]) { display: flex; justify-content: center; gap: 8px; }
