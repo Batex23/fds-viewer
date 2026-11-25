@@ -665,3 +665,5 @@ body.studio #charts-panel { padding-top: 72px; }
     margin-left: 1px;
     color: var(--text-secondary);
 }
+.st-chip-minor { font-size: 14px; font-weight: 500; padding: 8px 11px; }
+.st-chip-minor[aria-pressed="false"] { color: var(--text-muted); }

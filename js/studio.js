@@ -168,13 +168,26 @@
         }
     }
 
+    /** Charge les données de parois en privilégiant WALL TEMPERATURE. */
+    async function loadWallTemperature() {
+        const sel = ctl('output-boundary-set');
+        if (sel && sel.options.length) {
+            const pref = Array.from(sel.options).find(o => /WALL TEMPERATURE/i.test(o.textContent))
+                || Array.from(sel.options).find(o => /TEMPERATURE/i.test(o.textContent));
+            if (pref && sel.value !== pref.value) setCtl('output-boundary-set', pref.value);
+        }
+        return api().loadBoundary();
+    }
+
     function afterLoad() {
         applyStudioDefaults(true);
         const a = api() && api().availability();
         if (a) {
+            // Priorité : la fumée, puis les températures des parois.
             if (a.smokeLoaded) api().setMode('smoke');
+            else if (a.boundary) { api().setMode('boundary'); loadWallTemperature().then(() => sync(true)); }
             else if (a.slice) api().setMode('slice');
-            else if (a.boundary) { api().setMode('boundary'); api().loadBoundary(); }
+            if (!a.smoke) toast('Ce calcul ne contient pas de fumée 3D (fichiers .s3d) : vérifiez &DUMP / SMOKE3D dans le .fds.', 7000);
         }
         S.cut.on = false; S.cut.pos = null;
         sync(true);
@@ -1006,11 +1019,12 @@
     }
 
     // ── Barre des modes ──────────────────────────────────────────────────
+    // Fumée et températures des parois d'abord ; le reste est secondaire.
     const MODE_LABELS = [
-        ['smoke', 'Fumée et flammes'],
-        ['slice', 'Plans de coupe'],
-        ['boundary', 'Parois'],
-        ['charts', 'Courbes'],
+        ['smoke', 'Fumée et flammes', 1],
+        ['boundary', 'Températures des parois', 1],
+        ['slice', 'Plans de coupe', 2],
+        ['charts', 'Courbes', 2],
     ];
     function renderModes(av, mode) {
         const show = { smoke: av.smoke, slice: av.slice, boundary: av.boundary, charts: S.csvSeen };
@@ -1019,7 +1033,9 @@
         if (sig === S.availSig) return;
         S.availSig = sig;
         modes.hidden = !list.length;
-        modes.innerHTML = list.map(([k, l]) => `<button type="button" class="st-chip" data-mode="${k}" aria-pressed="${mode === k}">${esc(l)}</button>`).join('') +
+        const chip = ([k, l, lvl]) => `<button type="button" class="st-chip${lvl === 2 ? ' st-chip-minor' : ''}" data-mode="${k}" aria-pressed="${mode === k}">${esc(l)}</button>`;
+        const main = list.filter(x => x[2] === 1), minor = list.filter(x => x[2] === 2);
+        modes.innerHTML = main.map(chip).join('') + (main.length && minor.length ? '<span class="st-sep"></span>' : '') + minor.map(chip).join('') +
             (['smoke', 'slice', 'boundary'].includes(mode) ? `<span class="st-sep"></span><button type="button" class="st-tool" data-pop="settings" data-tip="Réglages" aria-label="Réglages de l’affichage" aria-expanded="${S.open === 'settings'}">${icon('sliders')}</button>` : '');
     }
     function wireModes() {
@@ -1034,7 +1050,7 @@
             a.setMode(m);
             const av = a.availability();
             if (m === 'smoke' && !av.smokeLoaded) { toast('Chargement de la fumée…', 0); await a.loadSmoke(); toast('Fumée chargée.'); }
-            if (m === 'boundary' && !av.boundaryLoaded) { toast('Chargement des parois…', 0); await a.loadBoundary(); toast('Parois chargées.'); }
+            if (m === 'boundary' && !av.boundaryLoaded) { toast('Chargement des températures des parois…', 0); await loadWallTemperature(); toast('Parois chargées.'); }
             S.availSig = '';
             sync(true);
         });

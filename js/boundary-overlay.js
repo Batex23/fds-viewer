@@ -96,7 +96,7 @@
             let xb = null;
             for (let s = i + 2; s < lines.length; s++) {
                 const la = lines[s].trim();
-                if (la.startsWith('GRID') || la.startsWith('BNDF') || la.startsWith('SMOKF3D')) break;
+                if (la.startsWith('GRID') || la.startsWith('BNDF') || /^SMOK[EFG]3D\b/.test(la)) break;
                 if (la !== 'PDIM') continue;
                 const values = (lines[s + 1] || '').trim().split(/\s+/).map(Number).filter(Number.isFinite);
                 if (values.length >= 6) xb = values.slice(0, 6);

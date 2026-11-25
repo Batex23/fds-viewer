@@ -25,16 +25,21 @@
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-            if (!line.startsWith('SMOKF3D')) continue;
+            // FDS ≥ 6.7 : SMOKF3D ; FDS 5 et FDS 6 plus anciens : SMOKE3D
+            // (sans coefficient d'extinction sur la ligne). SMOKG3D : variante.
+            if (!/^SMOK[EFG]3D\b/.test(line)) continue;
             const parts = line.split(/\s+/);
             const meshIndex = Number(parts[1]);
-            const scaleValue = Number(parts[2]);
+            let scaleValue = Number(parts[2]);
             const file = (lines[i + 1] || '').trim();
             const quantity = (lines[i + 2] || '').trim();
             const shortName = (lines[i + 3] || '').trim();
             const units = (lines[i + 4] || '').trim();
             if (!file || !quantity || !Number.isFinite(meshIndex)) continue;
             const key = quantity.toUpperCase();
+            // Coefficient d'extinction massique absent (anciens .smv) : valeur
+            // par défaut de FDS/Smokeview pour la suie, 8700 m²/kg.
+            if (!(scaleValue > 0) && /SOOT/i.test(quantity)) scaleValue = 8700;
             if (!groups.has(key)) {
                 groups.set(key, {
                     key, quantity, shortName, units, entries: [],
@@ -61,7 +66,7 @@
             let xb = null;
             for (let j = i + 2; j < lines.length; j++) {
                 const la = lines[j].trim();
-                if (la.startsWith('GRID') || la.startsWith('SMOKF3D')) break;
+                if (la.startsWith('GRID') || /^SMOK[EFG]3D\b/.test(la)) break;
                 if (la !== 'PDIM') continue;
                 const v = (lines[j + 1] || '').trim().split(/\s+/).map(Number).filter(Number.isFinite);
                 if (v.length >= 6) xb = v.slice(0, 6);
