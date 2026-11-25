@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
             container.style.display = 'block';
             document.getElementById('sidebar').classList.add('active');
             document.body.classList.add('has-data');
-            activatePage('3d');
+            activatePage(document.body.classList.contains('studio') ? 'output' : '3d');
 
             viewer.loadData(currentData);
             updateStats();

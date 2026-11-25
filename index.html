@@ -9,7 +9,8 @@
     <link rel="apple-touch-icon" href="assets/sdis33/apple-touch-icon.png">
     <link rel="stylesheet" href="css/style.css?v=20261125a">
     <link rel="stylesheet" href="css/remote.css?v=20261125b">
-    <link rel="stylesheet" href="css/sdis33.css?v=20261125a">
+    <link rel="stylesheet" href="css/sdis33.css?v=20261125b">
+    <link rel="stylesheet" href="css/studio.css?v=20261125b">
 </head>
 <body>
     <!-- Top Bar -->
@@ -374,13 +375,20 @@
 
                 <section class="help-page active" data-help-page="quickstart">
                     <h3>Prise en main</h3>
+                    <p>La visionneuse s’ouvre sur le <strong>lecteur</strong> : la scène 3D occupe l’écran et quelques commandes suffisent.</p>
                     <ol>
-                        <li>Déposez un fichier <code>.fds</code> sur l’écran d’accueil, cliquez sur <em>Ouvrir un fichier</em>, ou sur <em>Charger l’exemple</em> pour essayer le cas fourni.</li>
-                        <li>Le modèle s’affiche dans l’onglet <strong>Géométrie 3D</strong>. Faites glisser avec la souris pour tourner autour, la molette pour zoomer, clic droit + glisser pour vous déplacer.</li>
-                        <li>Les autres onglets s’activent une fois le fichier chargé : résolution du maillage, paramètres du feu, code source et résultats de simulation.</li>
-                        <li>Pour consulter une simulation partagée par lien, il suffit d’ouvrir le lien : tout se charge automatiquement.</li>
+                        <li><strong>Ouvrir</strong> (en haut) : choisissez le dossier de résultats d’un calcul FDS, ou glissez-le sur la page. Un lien partagé s’ouvre directement.</li>
+                        <li><strong>Lecteur</strong> (en bas) : lecture/pause, vitesse ×0,5 à ×4. La frise affiche la courbe de puissance du feu (HRR) ; cliquez ou faites glisser pour aller à un instant.</li>
+                        <li><strong>Donnée affichée</strong> (en haut) : Fumée et flammes, Plans de coupe, Parois ou Courbes. Le bouton de réglages à droite donne les réglages essentiels ; « Tous les réglages… » donne accès à l’ensemble.</li>
+                        <li><strong>Outils</strong> (à gauche) : Vues (dont vos vues enregistrées), Couper le bâtiment, Affichage du bâtiment, Visite à la première personne, Capture d’image aux couleurs du SDIS 33.</li>
                     </ol>
-                    <p>Utilisez le menu de gauche pour accéder à chaque rubrique.</p>
+                    <h4>Raccourcis du lecteur</h4>
+                    <ul>
+                        <li><kbd>Espace</kbd> : lecture / pause.</li>
+                        <li><kbd>Maj</kbd> + <kbd>&larr;</kbd>/<kbd>&rarr;</kbd> : pas de temps précédent / suivant.</li>
+                        <li><kbd>Échap</kbd> : fermer un panneau ou quitter le mode présentation.</li>
+                    </ul>
+                    <p>Le menu <strong>&middot;&middot;&middot;</strong> propose le <em>mode présentation</em> (plein écran) et l’<em>analyse du modèle</em> : l’interface experte avec les onglets Géométrie 3D, Maillage, Feu &amp; combustion et Code.</p>
                 </section>
 
                 <section class="help-page" data-help-page="share">
@@ -1397,9 +1405,10 @@
     <script src="js/charts-panel.js?v=20261125c"></script>
     <script src="js/trajectory-reader.js?v=20261125c"></script>
     <script src="js/agent-overlay.js?v=20261125c"></script>
-    <script src="js/output-page.js?v=20261125c"></script>
-    <script src="js/app.js?v=20261125c"></script>
+    <script src="js/output-page.js?v=20261125d"></script>
+    <script src="js/app.js?v=20261125d"></script>
     <script src="js/config.js?v=20261125c"></script>
     <script src="js/remote-loader.js?v=20261125c"></script>
+    <script src="js/studio.js?v=20261125b"></script>
 </body>
 </html>

@@ -826,7 +826,7 @@
             const next = (sliceOverlay.frameIndex + 1) % currentDataset.frames.length;
             sliceOverlay.setFrame(next);
             syncAgents();
-        }, 80);
+        }, Math.max(16, 80 / playbackSpeed()));
     }
 
     // Single-folder picker shared across Soot / Slice / Boundary panels. The
@@ -852,6 +852,100 @@
         // Cheaper than tracking down every shared piece of state by hand.
         if (typeof applyModeRef === 'function') applyModeRef(mode);
     }
+
+
+    // ── Public API for the presentation player (js/studio.js) ─────────────
+    // Lets the simplified interface drive the engine without going through
+    // the expert sidebars: mode, playback, frames, speed, camera.
+    let _playbackSpeed = 1;
+    function playbackSpeed() { return _playbackSpeed; }
+
+    function activeFrames() {
+        if (mode === 'smoke' && smokeOverlay) return smokeOverlay.activeFrames || [];
+        if (mode === 'boundary' && boundaryOverlay) return boundaryOverlay.activeFrames || [];
+        if (mode === 'slice' && currentDataset) return currentDataset.frames || [];
+        return [];
+    }
+    function activeFrameIndex() {
+        if (mode === 'smoke' && smokeOverlay) return smokeOverlay.frameIndex || 0;
+        if (mode === 'boundary' && boundaryOverlay) return boundaryOverlay.frameIndex || 0;
+        if (mode === 'slice' && sliceOverlay) return sliceOverlay.frameIndex || 0;
+        return 0;
+    }
+    function isPlayingNow() {
+        if (mode === 'smoke') return !!smokePlaybackTimer;
+        if (mode === 'boundary') return !!boundaryPlaybackTimer;
+        if (mode === 'slice') return !!playbackTimer;
+        return false;
+    }
+
+    window.outputPageAPI = {
+        getViewer: () => outputViewer || ensureViewer(),
+        getMode: () => mode,
+        setMode(next) {
+            const btn = document.getElementById('output-mode-' + next);
+            if (btn) btn.click();
+        },
+        availability() {
+            const bndSel = document.getElementById('output-boundary-set');
+            const smokeQ = document.getElementById('output-smoke-quantity');
+            return {
+                smoke: !!(smokeOverlay && smokeOverlay.activeFrames && smokeOverlay.activeFrames.length) ||
+                       !!(smokeQ && !smokeQ.disabled && smokeQ.value),
+                smokeLoaded: !!(smokeOverlay && smokeOverlay.activeFrames && smokeOverlay.activeFrames.length),
+                slice: !!(availableGroups && availableGroups.length),
+                boundary: !!(bndSel && !bndSel.disabled && bndSel.options.length && bndSel.value),
+                boundaryLoaded: !!(boundaryOverlay && boundaryOverlay.activeFrames && boundaryOverlay.activeFrames.length),
+                geometry: !!lastData || !!smvSliceContext,
+            };
+        },
+        frames: () => activeFrames().map(f => Number(f.time) || 0),
+        frameIndex: activeFrameIndex,
+        setFrame(i) {
+            const vp = document.getElementById('output-vp-slider');
+            if (!vp || vp.disabled) return;
+            vp.value = String(i);
+            vp.dispatchEvent(new Event('input', { bubbles: true }));
+        },
+        isPlaying: isPlayingNow,
+        play() { if (!isPlayingNow()) { const b = document.getElementById('output-vp-play-btn'); if (b && !b.disabled) b.click(); } },
+        pause() { if (isPlayingNow()) { const b = document.getElementById('output-vp-play-btn'); if (b) b.click(); } },
+        getSpeed: () => _playbackSpeed,
+        setSpeed(v) {
+            _playbackSpeed = Math.max(0.25, Math.min(8, Number(v) || 1));
+            if (isPlayingNow()) { this.pause(); this.play(); }
+        },
+        loadSmoke() { const v = outputViewer || ensureViewer(); return handleSmokeLoad(v); },
+        loadBoundary() { const v = outputViewer || ensureViewer(); return handleBoundaryLoad(v); },
+        hasData: () => !!lastData,
+        bounds() {
+            const v = outputViewer || ensureViewer();
+            return (v && v.getBoundsFDS()) || smokeOverlayBounds()
+                || (boundaryOverlay ? boundaryOverlay.getBoundsFDS() : null);
+        },
+        /** Clip box in FDS coordinates; omitted axes are left open. null clears. */
+        setClip(box) {
+            const v = outputViewer || ensureViewer();
+            const b = this.bounds();
+            if (!v || !b) return;
+            const full = { x: [b.xmin, b.xmax], y: [b.ymin, b.ymax], z: [b.zmin, b.zmax] };
+            ['x', 'y', 'z'].forEach(ax => {
+                const r = (box && box[ax]) || full[ax];
+                const mnS = document.getElementById('output-clip-' + ax + 'min');
+                const mxS = document.getElementById('output-clip-' + ax + 'max');
+                const mnI = document.getElementById('output-clip-' + ax + 'min-val');
+                const mxI = document.getElementById('output-clip-' + ax + 'max-val');
+                if (mnS) mnS.value = r[0];
+                if (mxS) mxS.value = r[1];
+                if (mnI) mnI.value = Number(r[0]).toFixed(2);
+                if (mxI) mxI.value = Number(r[1]).toFixed(2);
+            });
+            if (!v.getBoundsFDS()) {
+                v.setBoundsFDSAndFit(b.xmin, b.xmax, b.ymin, b.ymax, b.zmin, b.zmax);
+            }
+            applyClip(v);
+        },
+    };
 
     /**
      * Remote loading entry point (js/remote-loader.js). Feeds a list of
@@ -1227,7 +1321,7 @@
             if (vpSlider && mode === 'smoke') vpSlider.value       = next;
             if (vpTime   && mode === 'smoke') vpTime.textContent   = timeStr;
             syncAgents();
-        }, 220);
+        }, Math.max(16, 220 / playbackSpeed()));
     }
 
     function wireSmokeControls(viewer) {
@@ -1530,7 +1624,7 @@
             if (vpTime   && mode === 'boundary') vpTime.textContent   = timeStr;
             refreshBoundaryColorbar();
             syncAgents();
-        }, 220);
+        }, Math.max(16, 220 / playbackSpeed()));
     }
 
     function wireBoundaryControls(viewer) {
@@ -1700,7 +1794,7 @@
         if (!sel) return;
         sel.innerHTML = '';
         if (!availableGroups || availableGroups.length === 0) {
-            sel.innerHTML = '<option value="">No slice data loaded</option>';
+            sel.innerHTML = '<option value="">Aucune donnée de slice chargée</option>';
             sel.disabled = true;
             return;
         }
