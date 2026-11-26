@@ -228,7 +228,7 @@
                 const body = text.slice(start, end);
                 const params = {};
                 const cleaned = body.split(/\r?\n/).map(l => l.replace(/!.*/, ' ')).join(' ');
-                const pre = /([A-Z][A-Z0-9_()]*)\s*=\s*([^=]*?)(?=,\s*[A-Z][A-Z0-9_()]*\s*=|$)/gi;
+                const pre = /([A-Z][A-Z0-9_()]*)\s*=\s*([^=]*?)(?=[,\s]\s*[A-Z][A-Z0-9_()]*\s*=|$)/gi;
                 let mp;
                 while ((mp = pre.exec(cleaned)) !== null) params[mp[1].toUpperCase()] = mp[2].replace(/,$/, '').trim();
                 const parseArr = (raw, count) => {
@@ -340,7 +340,40 @@
             if (!this.activeFrames.length) return;
             this.frameIndex = clamp(idx, 0, this.activeFrames.length - 1);
             this._lastFrameChangeTime = performance.now();
-            this._renderCurrentFrame();
+            if (!this._updateFrameInPlace()) this._renderCurrentFrame();
+        }
+
+        /**
+         * Fast path for playback: when the volumes on screen already match the
+         * new frame's layout (same count and dims), copy the new bytes into the
+         * existing 3D textures instead of rebuilding meshes, materials and
+         * textures. Returns false when a full rebuild is needed.
+         */
+        _updateFrameInPlace() {
+            if (!this.activeKeys.length || !this.activeFrames.length) return false;
+            if (!this.supportsVolumeRendering()) return false;
+            const meshes = this.group.children.filter(c => c._isSmokeVolume && c._smokeTexture);
+            const volumes = [];
+            for (const key of this.activeKeys) {
+                const group = this.loadedGroups.get(key);
+                if (!group) continue;
+                const layer = this._buildWebGlVolumeLayer(group);
+                for (const v of layer.volumes) volumes.push(v);
+            }
+            if (!volumes.length || volumes.length !== meshes.length) return false;
+            for (let i = 0; i < volumes.length; i++) {
+                const buf = meshes[i]._smokeBuffer;
+                if (!buf || !volumes[i].data || buf.length !== volumes[i].data.length) return false;
+            }
+            for (let i = 0; i < volumes.length; i++) {
+                const m = meshes[i];
+                m._smokeBuffer.set(volumes[i].data);
+                m._smokeTexture.needsUpdate = true;
+                m._smokeLastBlend = -1;
+                if (volumes[i]._entry) m._smokeEntry = volumes[i]._entry;
+                if (volumes[i]._group) m._smokeGroup = volumes[i]._group;
+            }
+            return true;
         }
 
         /** Toggle temporal smoothing. See constructor for cost notes. */

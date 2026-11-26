@@ -16,7 +16,7 @@
 
     const LS_UI = 'sp33-ui-mode';
     const LS_VIEWS = 'sp33-views:';
-    const SPEEDS = [1, 2, 4, 0.5];
+    const SPEEDS = [0.5, 1, 2, 4, 8, 16];
 
     const api = () => window.outputPageAPI;
     const $ = (sel, root) => (root || document).querySelector(sel);
@@ -50,6 +50,8 @@
         target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/>',
         drive: '<path d="M8.5 4h7l6 10.5-3.5 6h-11L3.5 14.5z"/><path d="M8.5 4l6.5 11h7M15.5 4L9 15H2.5M5.5 19.5L12 9"/>',
         plus: '<path d="M12 5v14M5 12h14"/>',
+        chev: '<path d="M6 9l6 6 6-6"/>',
+        check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     };
     const icon = (name, cls) => `<svg class="${cls || 'st-ico'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 
@@ -66,6 +68,19 @@
         scrubbing: false,
         availSig: '',
         defaultsApplied: false,
+        // Lecture pilotée par le lecteur (toutes les couches au même instant)
+        time: 0, playing: false, speed: 1, lastTick: 0, nextApply: 0,
+        files: [], devc: null, devcSel: [], devcPicker: false, devcFilter: '',
+        dock: false, dockCharts: null,
+        smokeLoading: false, sliceLoading: new Set(),
+        sliceMap: 'diagnostic', sliceOpacity: 0.9, sliceDepth: false, sliceOutline: true,
+        partBase: 0.05, partScale: 1,
+        L: {
+            smoke: { on: true, times: [], _src: null },
+            wall: { on: false, loaded: false, loading: false, key: null, times: [], quantity: '', units: '', progress: '' },
+            part: { on: false, layer: null, loading: false, available: false, progress: '' },
+            slices: [],
+        },
     };
 
     // ── Commandes de l'ancienne interface (pilotées par valeur) ───────────
@@ -101,11 +116,23 @@
         const smv = files.find(f => /\.smv$/i.test(f.name));
         S.simKey = smv ? smv.name.replace(/\.smv$/i, '') : (S.simKey || '');
         S.csvSeen = files.some(f => /\.csv$/i.test(f.name));
-        S.hrr = null;
+        S.hrr = null; S.devc = null; S.devcSel = []; S.dockCharts = null;
+        S.files = files;
+        resetLayers();
+        L.part.available = files.some(f => /\.prt5$/i.test(f.name));
         const hrr = files.find(f => /_hrr\.csv$/i.test(f.name));
         if (hrr) {
-            hrr.text().then(txt => { S.hrr = parseHrr(txt); drawTimeline(); refreshHrrReadout(); })
+            hrr.text().then(txt => { S.hrr = parseHrr(txt); drawTimeline(); refreshHrrReadout(); renderChips(true); if (S.dock) buildDock(); })
                 .catch(() => { /* frise sans courbe */ });
+        }
+        const devc = files.find(f => /_devc\.csv$/i.test(f.name));
+        if (devc) {
+            devc.text().then(txt => {
+                S.devc = parseCsv(txt);
+                S.devcSel = defaultDevcSelection(S.devc);
+                renderChips(true);
+                if (S.dock) buildDock();
+            }).catch(() => { /* pas de capteurs */ });
         }
     }
 
@@ -168,29 +195,29 @@
         }
     }
 
-    /** Charge les données de parois en privilégiant WALL TEMPERATURE. */
-    async function loadWallTemperature() {
-        const sel = ctl('output-boundary-set');
-        if (sel && sel.options.length) {
-            const pref = Array.from(sel.options).find(o => /WALL TEMPERATURE/i.test(o.textContent))
-                || Array.from(sel.options).find(o => /TEMPERATURE/i.test(o.textContent));
-            if (pref && sel.value !== pref.value) setCtl('output-boundary-set', pref.value);
-        }
-        return api().loadBoundary();
-    }
-
-    function afterLoad() {
+    async function afterLoad() {
         applyStudioDefaults(true);
-        const a = api() && api().availability();
-        if (a) {
-            // Priorité : la fumée, puis les températures des parois.
-            if (a.smokeLoaded) api().setMode('smoke');
-            else if (a.boundary) { api().setMode('boundary'); loadWallTemperature().then(() => sync(true)); }
-            else if (a.slice) api().setMode('slice');
-            if (!a.smoke) toast('Ce calcul ne contient pas de fumée 3D (fichiers .s3d) : vérifiez &DUMP / SMOKE3D dans le .fds.', 7000);
-        }
+        const a = api();
+        const av = a && a.availability();
         S.cut.on = false; S.cut.pos = null;
+        if (!av) return;
+        // Le lecteur garde le moteur en mode « fumée » et gère lui-même
+        // l'affichage de chaque couche.
+        a.setMode('smoke');
+        a.stopAllPlayback();
+        L.smoke.on = true;
+        const [t0] = span();
+        S.time = t0;
+        applyVisibility();
+        applyTime(true);
         sync(true);
+        if (!av.smoke) toast('Ce calcul ne contient pas de fumée 3D (fichiers .s3d) : vérifiez &DUMP / SMOKE3D dans le .fds.', 7000);
+        // Préchargement en arrière-plan : particules (affichées dès qu'elles
+        // sont prêtes), puis températures des parois (affichées d'office
+        // seulement s'il n'y a pas de fumée).
+        if (L.part.available) await loadParticles(true);
+        if (a.boundarySets().length) await loadWall(null, !av.smoke);
+        if (!av.smoke && !L.wall.on && av.slice) togglePop('slices', $('[data-layer="slices"]', modes));
     }
 
     // Vue épurée par défaut : on garde le bâtiment, on masque le maillage.
@@ -198,7 +225,8 @@
         if (!layerBox('grid')) return;
         ['grid', 'meshes', 'devcs', 'inits', 'zones', 'hvacs'].forEach(l => setLayer(l, false));
         ['obsts', 'vents', 'holes', 'geoms', 'fires'].forEach(l => setLayer(l, true));
-        setCtl('output-scene-grayscale', !!results);
+        // Couleurs des matériaux visibles par défaut (une teinte par SURF).
+        setCtl('output-scene-grayscale', false);
         S.defaultsApplied = true;
     }
 
@@ -229,7 +257,7 @@
                     <div class="st-tl-tip" hidden></div>
                 </div>
                 <div class="st-hrr" hidden title="Puissance dégagée par le feu (fichier _hrr.csv)"><strong>—</strong><span>HRR</span></div>
-                <button type="button" class="st-speed" title="Vitesse de lecture">×1</button>
+                <button type="button" class="st-speed" title="Vitesse de lecture" aria-haspopup="menu">×1</button>
             </div>
             <section class="st-empty st-glass" hidden>
                 <h1>Ouvrir une simulation</h1>
@@ -264,12 +292,7 @@
             if (b) openAction(b.dataset.act);
         });
         $('.st-play', player).addEventListener('click', togglePlay);
-        $('.st-speed', player).addEventListener('click', e => {
-            const cur = api().getSpeed();
-            const next = SPEEDS[(SPEEDS.indexOf(cur) + 1) % SPEEDS.length];
-            api().setSpeed(next);
-            e.currentTarget.textContent = '×' + String(next).replace('.', ',');
-        });
+        $('.st-speed', player).addEventListener('click', e => openSpeedMenu(e.currentTarget));
         wireTimeline();
 
         // En-têtes « fermer » des tiroirs (anciens panneaux)
@@ -393,7 +416,9 @@
 
     // ── Modes lecteur / expert / présentation ─────────────────────────────
     function setStudio(on, page) {
+        S.playing = false;
         document.body.classList.toggle('studio', on);
+        if (!on && legendEl) legendEl.hidden = true;
         lsSet(LS_UI, on ? 'studio' : 'expert');
         closePop(); closeMenu(); drawer('left', false); drawer('right', false);
         const tab = $(`.page-tab[data-page="${on ? 'output' : (page || 'output')}"]`);
@@ -454,7 +479,7 @@
 
     function renderPop() {
         if (!pop) return;
-        const fn = { views: popViews, cut: popCut, building: popBuilding, settings: popSettings }[S.open];
+        const fn = { views: popViews, cut: popCut, building: popBuilding, settings: popSettings, slices: popSlices }[S.open];
         if (fn) fn(pop);
         const x = $('[data-close]', pop);
         if (x) x.addEventListener('click', closePop);
@@ -668,10 +693,10 @@
         });
     }
 
-    // Réglages de la donnée affichée
+    // Réglages des couches affichées
     function popSettings(el) {
-        const mode = api().getMode();
-        const sw = (id, label, on) => `<label class="st-switch"><span>${label}</span><input type="checkbox" data-ctl="${id}" ${on ? 'checked' : ''}></label>`;
+        const av = api().availability();
+        const sw = (id, label, on, attr) => `<label class="st-switch"><span>${label}</span><input type="checkbox" ${attr || 'data-ctl'}="${id}" ${on ? 'checked' : ''}></label>`;
         const rng = (id, label, lo, hi, left, right) => {
             const src = ctl(id) || {};
             return `<div class="st-field"><div class="st-label">${label}</div>
@@ -683,51 +708,98 @@
             if (!src) return '';
             return `<div class="st-field"><div class="st-label">${label}</div><select class="st-select" data-ctl="${id}">${Array.from(src.options).map(o => `<option value="${esc(o.value)}" ${o.value === src.value ? 'selected' : ''}>${esc(o.textContent)}</option>`).join('')}</select></div>`;
         };
-        let body = '';
-        if (mode === 'smoke') {
-            body = rng('output-smoke-vol-gain', 'Densité de la fumée', 0.5, 20, 'Légère', 'Dense') +
+        const sections = [];
+        if (av.smokeLoaded && L.smoke.on) {
+            sections.push('<h3>Fumée et flammes</h3>' +
+                rng('output-smoke-vol-gain', 'Densité de la fumée', 0.5, 20, 'Légère', 'Dense') +
                 rng('output-smoke-fire-gain', 'Intensité des flammes', 0.5, 20, 'Faible', 'Forte') +
                 `<div class="st-field"><div class="st-label">Seuil d’affichage des flammes <span class="st-val" data-kw>${esc((ctl('output-smoke-hrr-thresh-kw') || {}).textContent || '')}</span></div>
                     <input type="range" class="st-range" data-ctl="output-smoke-hrr-thresh" min="0" max="255" value="${(ctl('output-smoke-hrr-thresh') || {}).value || 42}">
                     <div class="st-hint">Les flammes sont affichées au-dessus de ce seuil de puissance volumique. Smokeview : 200 kW/m³.</div></div>` +
                 '<div class="st-field">' +
                 sw('output-smoke-render', 'Fumée masquée par les murs', (ctl('output-smoke-render') || {}).value === 'depth') +
-                sw('output-smoke-smooth', 'Animation fluide', (ctl('output-smoke-smooth') || {}).checked) +
-                '</div>';
-        } else if (mode === 'slice') {
-            body = mirrorSelect('output-slice-set-select', 'Plan affiché') +
-                mirrorSelect('output-color-map', 'Palette') +
-                '<div class="st-field">' + sw('output-slice-render', 'Plan masqué par les murs', (ctl('output-slice-render') || {}).value === 'depth') + '</div>';
-        } else if (mode === 'boundary') {
-            body = mirrorSelect('output-boundary-set', 'Grandeur sur les parois') +
-                mirrorSelect('output-boundary-colormap', 'Palette') +
-                rng('output-boundary-opacity', 'Opacité', 0.05, 1, 'Légère', 'Pleine');
-        } else {
-            body = '<p class="st-help">Aucun réglage pour cet affichage.</p>';
+                sw('output-smoke-smooth', 'Animation fluide (interpolation)', (ctl('output-smoke-smooth') || {}).checked) +
+                '</div>');
         }
-        const titles = { smoke: 'Réglages de la fumée', slice: 'Réglages du plan de coupe', boundary: 'Réglages des parois' };
-        el.innerHTML = popHead(titles[mode] || 'Réglages') + body +
+        if (L.wall.loaded || L.wall.loading) {
+            const sets = api().boundarySets();
+            sections.push('<h3>Parois</h3>' +
+                (sets.length > 1 ? `<div class="st-field"><div class="st-label">Grandeur sur les parois</div><select class="st-select" data-wallset>${sets.map(x =>
+                    `<option value="${esc(x.key)}" ${x.key === L.wall.key ? 'selected' : ''}>${esc(qtyFr(x.quantity))}${x.units ? ' (' + esc(unitLabel(x.units)) + ')' : ''}</option>`).join('')}</select></div>` : '') +
+                mirrorSelect('output-boundary-colormap', 'Palette') +
+                rng('output-boundary-opacity', 'Opacité', 0.05, 1, 'Légère', 'Pleine'));
+        }
+        if (L.part.layer) {
+            const cls = L.part.layer.activeClasses();
+            sections.push('<h3>Particules</h3><div class="st-field">' +
+                cls.map(c => `<label class="st-switch"><span><i class="st-swatch" style="background:${c.color}"></i>${esc(c.name)}</span><input type="checkbox" data-pclass="${L.part.layer.classes.indexOf(c)}" ${c.visible ? 'checked' : ''}></label>`).join('') +
+                `</div><div class="st-field"><div class="st-label">Taille des particules</div>
+                <input type="range" class="st-range" data-psize min="0.25" max="3" step="0.05" value="${S.partScale}">
+                <div class="st-range-ends"><span>Fines</span><span>Grosses</span></div></div>`);
+        }
+        if (L.slices.length) {
+            const mapSel = ctl('output-color-map');
+            const maps = mapSel ? Array.from(mapSel.options).map(o => [o.value, o.textContent]) : [['diagnostic', 'Diagnostic']];
+            sections.push('<h3>Plans de coupe</h3>' +
+                `<div class="st-field"><div class="st-label">Palette</div><select class="st-select" data-slicemap>${maps.map(([v, l]) => `<option value="${esc(v)}" ${v === S.sliceMap ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>` +
+                `<div class="st-field"><div class="st-label">Opacité</div><input type="range" class="st-range" data-sliceop min="0.1" max="1" step="0.05" value="${S.sliceOpacity}"><div class="st-range-ends"><span>Légère</span><span>Pleine</span></div></div>` +
+                '<div class="st-field">' + sw('depth', 'Plans masqués par les murs', S.sliceDepth, 'data-slicesw') + sw('outline', 'Contour des plans', S.sliceOutline, 'data-slicesw') + '</div>');
+        }
+        el.innerHTML = popHead('Réglages de l’affichage') +
+            (sections.join('') || '<p class="st-help">Activez une couche (fumée, parois, particules, plans) pour la régler ici.</p>') +
             `<button type="button" class="st-link" data-all>${icon('sliders', 'st-ico-sm')} Tous les réglages…</button>`;
 
         on(el, 'input', e => {
-            const id = e.target.dataset.ctl;
-            if (!id || e.target.type !== 'range') return;
-            setCtl(id, e.target.value);
+            const t = e.target;
+            if (t.hasAttribute('data-psize')) {
+                S.partScale = parseFloat(t.value);
+                if (L.part.layer) L.part.layer.setPointSize(S.partBase * S.partScale);
+                return;
+            }
+            if (t.hasAttribute('data-sliceop')) {
+                S.sliceOpacity = parseFloat(t.value);
+                L.slices.forEach(x => x.overlay.setOpacity(S.sliceOpacity));
+                return;
+            }
+            const id = t.dataset.ctl;
+            if (!id || t.type !== 'range') return;
+            setCtl(id, t.value);
             if (id === 'output-smoke-hrr-thresh') {
                 const kw = $('[data-kw]', el);
                 if (kw) kw.textContent = (ctl('output-smoke-hrr-thresh-kw') || {}).textContent || '';
             }
         });
         on(el, 'change', async e => {
-            const id = e.target.dataset.ctl;
+            const t = e.target;
+            if (t.dataset.pclass != null) {
+                L.part.layer.setClassVisible(+t.dataset.pclass, t.checked);
+                renderLegends();
+                return;
+            }
+            if (t.dataset.slicesw) {
+                if (t.dataset.slicesw === 'depth') { S.sliceDepth = t.checked; L.slices.forEach(x => x.overlay.setRenderMode(S.sliceDepth ? 'depth' : 'basic')); }
+                else { S.sliceOutline = t.checked; applyVisibility(); }
+                return;
+            }
+            if (t.hasAttribute('data-slicemap')) {
+                S.sliceMap = t.value;
+                L.slices.forEach(x => x.overlay.setColorMap(S.sliceMap));
+                renderLegends();
+                return;
+            }
+            if (t.hasAttribute('data-wallset')) {
+                L.wall.loaded = false;
+                await loadWall(t.value, true);
+                return;
+            }
+            const id = t.dataset.ctl;
             if (!id) return;
-            if (e.target.type === 'checkbox') {
-                if (id === 'output-smoke-render' || id === 'output-slice-render') setCtl(id, e.target.checked ? 'depth' : 'basic');
-                else setCtl(id, e.target.checked);
-            } else if (e.target.tagName === 'SELECT') {
-                setCtl(id, e.target.value);
-                if (id === 'output-boundary-set') { await api().loadBoundary(); sync(true); }
-                if (id === 'output-slice-set-select') sync(true);
+            if (t.type === 'checkbox') {
+                if (id === 'output-smoke-render') setCtl(id, t.checked ? 'depth' : 'basic');
+                else setCtl(id, t.checked);
+            } else if (t.tagName === 'SELECT') {
+                setCtl(id, t.value);
+                if (id === 'output-boundary-colormap') { applyTime(true); setTimeout(renderLegends, 0); }
             }
         });
         on(el, 'click', e => {
@@ -781,8 +853,9 @@
             g.fillStyle = '#02216E'; g.fillRect(0, img.height, cv.width, band);
             g.fillStyle = '#CE0019'; g.fillRect(0, img.height, cv.width, Math.max(3, band * 0.06));
             const title = ((ctl('model-title') || {}).textContent || S.simKey || 'Simulation FDS').trim();
-            const t = S.frames[S.frameIdx];
-            const modeName = { smoke: 'Fumée et flammes', slice: 'Plan de coupe', boundary: 'Parois' }[api().getMode()] || '';
+            const t = hasTimeline() ? S.time : NaN;
+            const modeName = [L.smoke.on && api().availability().smokeLoaded ? 'Fumée' : '', L.wall.on && L.wall.loaded ? 'Parois' : '',
+                L.part.on && L.part.layer ? 'Particules' : '', L.slices.some(x => x.on) ? 'Plans de coupe' : ''].filter(Boolean).join(', ');
             const fs = Math.round(band * 0.32);
             g.fillStyle = '#fff';
             g.font = `600 ${fs}px "Barlow Semi Condensed", sans-serif`;
@@ -808,7 +881,7 @@
         img.src = dataUrl;
         function download(cv) {
             const a = document.createElement('a');
-            const t = S.frames[S.frameIdx];
+            const t = hasTimeline() ? S.time : NaN;
             a.download = `${(S.simKey || 'simulation').replace(/[^\w-]+/g, '_')}${Number.isFinite(t) ? '_t' + Math.round(t) + 's' : ''}.png`;
             a.href = cv.toDataURL('image/png');
             a.click();
@@ -816,25 +889,148 @@
         }
     }
 
-    // ── Lecteur ───────────────────────────────────────────────────────────
-    function togglePlay() {
-        const a = api();
-        if (a.isPlaying()) a.pause(); else a.play();
-        syncPlayer();
-    }
+    // ── Horloge et couches ────────────────────────────────────────────────
+    // Le lecteur possède son propre temps (S.time, en secondes de simulation).
+    // Chaque couche visible reçoit le pas de temps qui correspond, seulement
+    // quand il change : les couches ont chacune leurs instants de sortie.
+    const REF_FPS = 6;           // ×1 = 6 pas de sortie par seconde
+    const L = S.L;
 
-    function nearestFrame(time) {
-        const f = S.frames;
-        let best = 0, bd = Infinity;
-        for (let i = 0; i < f.length; i++) { const d = Math.abs(f[i] - time); if (d < bd) { bd = d; best = i; } }
-        return best;
+    function frameAt(times, t) {
+        const n = times.length;
+        if (!n) return -1;
+        if (t <= times[0]) return 0;
+        if (t >= times[n - 1]) return n - 1;
+        let lo = 0, hi = n - 1;
+        while (hi - lo > 1) { const m = (lo + hi) >> 1; if (times[m] <= t + 1e-6) lo = m; else hi = m; }
+        return lo;
+    }
+    function smokeOv() { const o = api() && api().overlays(); return o ? o.smoke : null; }
+    function wallOv() { const o = api() && api().overlays(); return o ? o.boundary : null; }
+    function smokeTimes() {
+        const ov = smokeOv();
+        const fr = ov && ov.activeFrames;
+        if (!fr || !fr.length) return [];
+        if (L.smoke._src !== fr) { L.smoke._src = fr; L.smoke.times = fr.map(f => Number(f.time) || 0); }
+        return L.smoke.times;
+    }
+    /** Listes d'instants des couches chargées (visibles ou non). */
+    function allTimes() {
+        const out = [];
+        const st = smokeTimes(); if (st.length) out.push(st);
+        if (L.wall.loaded && L.wall.times.length) out.push(L.wall.times);
+        if (L.part.layer && L.part.layer.times.length) out.push(L.part.layer.times);
+        for (const s of L.slices) if (s.times && s.times.length) out.push(s.times);
+        return out;
+    }
+    function refTimes() {
+        const st = smokeTimes();
+        if (st.length > 1) return st;
+        const all = allTimes().filter(t => t.length > 1);
+        return all.length ? all[0] : [];
     }
     function span() {
-        const f = S.frames;
-        if (f.length > 1) return [f[0], f[f.length - 1]];
+        const all = allTimes().filter(t => t.length);
+        if (all.length) {
+            return [Math.min(...all.map(t => t[0])), Math.max(...all.map(t => t[t.length - 1]))];
+        }
         if (S.hrr) return [S.hrr.t[0], S.hrr.t[S.hrr.t.length - 1]];
         return [0, 1];
     }
+    function hasTimeline() { return allTimes().some(t => t.length > 1); }
+    function refDt() {
+        const t = refTimes();
+        if (t.length < 2) { const [a, b] = span(); return (b - a) / 100 || 1; }
+        const d = [];
+        for (let i = 1; i < t.length; i++) d.push(t[i] - t[i - 1]);
+        d.sort((a, b) => a - b);
+        return d[d.length >> 1] || ((t[t.length - 1] - t[0]) / (t.length - 1)) || 1;
+    }
+    /** Secondes de simulation par seconde réelle. */
+    function rate() { return REF_FPS * refDt() * S.speed; }
+
+    function applyVisibility() {
+        const sm = smokeOv();
+        if (sm) sm.setVisible(!!L.smoke.on);
+        const w = wallOv();
+        if (w) w.setVisible(!!(L.wall.on && L.wall.loaded));
+        if (L.part.layer) L.part.layer.setVisible(!!L.part.on);
+        for (const s of L.slices) {
+            const ov = s.overlay;
+            if (ov.mesh) ov.mesh.visible = !!s.on;
+            if (ov.outline) ov.outline.visible = !!s.on && !!S.sliceOutline;
+        }
+    }
+
+    /** Donne à chaque couche visible le pas de temps de S.time. */
+    function applyTime(force) {
+        const t = S.time;
+        const sm = smokeOv();
+        if (sm && L.smoke.on && sm.activeFrames && sm.activeFrames.length) {
+            const i = frameAt(smokeTimes(), t);
+            if (force || i !== sm.frameIndex) {
+                sm._smoothFrameDuration = Math.max(16, 1000 * refDt() / Math.max(1e-6, rate()));
+                sm.setFrame(i);
+            }
+        }
+        const w = wallOv();
+        if (w && L.wall.on && L.wall.loaded && w.activeFrames.length) {
+            const i = frameAt(L.wall.times, t);
+            if (force || i !== w.frameIndex) w.setFrame(i);
+        }
+        if (L.part.layer && L.part.on) {
+            const i = frameAt(L.part.layer.times, t);
+            if (force) L.part.layer.frameIndex = -1;
+            L.part.layer.setFrame(i);
+        }
+        for (const s of L.slices) {
+            if (!s.on) continue;
+            const i = frameAt(s.times, t);
+            if (force || i !== s.overlay.frameIndex) s.overlay.setFrame(i);
+        }
+    }
+
+    function setTime(t, force) {
+        const [t0, t1] = span();
+        S.time = Math.max(t0, Math.min(t1, t));
+        applyTime(force);
+        updatePlayerUI();
+    }
+
+    function togglePlay() {
+        if (!hasTimeline()) return;
+        if (S.playing) { S.playing = false; }
+        else {
+            const [t0, t1] = span();
+            if (S.time >= t1 - 1e-6) S.time = t0;
+            api().stopAllPlayback();
+            S.playing = true;
+            S.lastTick = performance.now();
+        }
+        updatePlayerUI();
+    }
+
+    function tick(now) {
+        if (S.playing && !S.scrubbing && document.body.classList.contains('studio')) {
+            const dt = Math.min(0.1, Math.max(0, (now - S.lastTick) / 1000));
+            const [, t1] = span();
+            S.time += dt * rate();
+            if (S.time >= t1) { S.time = t1; S.playing = false; }
+            // Aux vitesses élevées on saute des pas plutôt que de ralentir :
+            // la mise à jour des couches est espacée selon son coût réel.
+            if (now >= S.nextApply || !S.playing) {
+                const c0 = performance.now();
+                applyTime(!S.playing);
+                const cost = performance.now() - c0;
+                S.nextApply = now + Math.min(200, cost * 0.75);
+            }
+            updatePlayerUI();
+        }
+        S.lastTick = now;
+        requestAnimationFrame(tick);
+    }
+
+    // ── Lecteur ───────────────────────────────────────────────────────────
     function timeAtX(clientX) {
         const r = canvas.getBoundingClientRect();
         const k = Math.max(0, Math.min(1, (clientX - r.left - 6) / Math.max(1, r.width - 12)));
@@ -842,20 +1038,32 @@
         return t0 + k * (t1 - t0);
     }
 
+    function stepFrame(dir, big) {
+        const t = refTimes();
+        if (t.length < 2) return;
+        let i;
+        if (dir > 0) { i = t.findIndex(x => x > S.time + 1e-6); if (i < 0) i = t.length - 1; i += (big ? 9 : 0); }
+        else { i = frameAt(t, S.time - 1e-6); if (t[i] >= S.time - 1e-6) i--; i -= (big ? 9 : 0); }
+        i = Math.max(0, Math.min(t.length - 1, i));
+        S.playing = false;
+        setTime(t[i]);
+    }
+
     function wireTimeline() {
         let wasPlaying = false, raf = 0;
         const seek = x => {
             const t = timeAtX(x);
             S.hover = t;
-            const i = nearestFrame(t);
-            if (i !== S.frameIdx) { S.frameIdx = i; cancelAnimationFrame(raf); raf = requestAnimationFrame(() => api().setFrame(i)); }
+            S.time = t;
+            cancelAnimationFrame(raf);
+            raf = requestAnimationFrame(() => setTime(S.time));
             drawTimeline(); showTip(x);
         };
         timeline.addEventListener('pointerdown', e => {
-            if (S.frames.length < 2) return;
+            if (!hasTimeline()) return;
             S.scrubbing = true;
-            wasPlaying = api().isPlaying();
-            if (wasPlaying) api().pause();
+            wasPlaying = S.playing;
+            S.playing = false;
             timeline.setPointerCapture(e.pointerId);
             seek(e.clientX);
         });
@@ -867,28 +1075,25 @@
         const end = () => {
             if (!S.scrubbing) return;
             S.scrubbing = false;
-            if (wasPlaying) api().play();
-            syncPlayer();
+            if (wasPlaying) togglePlay();
+            updatePlayerUI();
         };
         timeline.addEventListener('pointerup', end);
         timeline.addEventListener('pointercancel', end);
         timeline.addEventListener('pointerleave', () => { if (!S.scrubbing) { S.hover = null; tip.hidden = true; drawTimeline(); } });
         timeline.addEventListener('keydown', e => {
-            const n = S.frames.length;
-            if (n < 2) return;
-            let i = S.frameIdx;
-            if (e.key === 'ArrowRight') i++;
-            else if (e.key === 'ArrowLeft') i--;
-            else if (e.key === 'Home') i = 0;
-            else if (e.key === 'End') i = n - 1;
-            else if (e.key === 'PageUp') i += 10;
-            else if (e.key === 'PageDown') i -= 10;
+            const t = refTimes();
+            if (t.length < 2) return;
+            if (e.key === 'ArrowRight') stepFrame(1);
+            else if (e.key === 'ArrowLeft') stepFrame(-1);
+            else if (e.key === 'PageUp') stepFrame(1, true);
+            else if (e.key === 'PageDown') stepFrame(-1, true);
+            else if (e.key === 'Home') { S.playing = false; setTime(span()[0]); }
+            else if (e.key === 'End') { S.playing = false; setTime(span()[1]); }
             else return;
             e.preventDefault(); e.stopPropagation();
-            i = Math.max(0, Math.min(n - 1, i));
-            S.frameIdx = i; api().setFrame(i); syncPlayer();
         });
-        window.addEventListener('resize', drawTimeline);
+        window.addEventListener('resize', () => { drawTimeline(); drawDock(true); });
     }
 
     function showTip(clientX) {
@@ -918,14 +1123,12 @@
         const red = cssVar('--sp-red', '#CE0019');
         const track = cssVar('--bg-tertiary', '#15224f');
         const ink = cssVar('--text-primary', '#fff');
-        const muted = cssVar('--text-muted', '#999');
         const pad = 6, x0 = pad, x1 = W - pad, top = 6, bottom = H - 8;
         const [t0, t1] = span();
         const X = t => x0 + (t - t0) / ((t1 - t0) || 1) * (x1 - x0);
-        const cur = S.frames.length ? S.frames[S.frameIdx] : null;
-        const xc = cur != null ? X(cur) : x0;
+        const has = hasTimeline();
+        const xc = has ? X(S.time) : x0;
 
-        // fond
         g.fillStyle = track;
         roundRect(g, 0, 0, W, H, 8); g.fill();
 
@@ -945,7 +1148,6 @@
             const grad = g.createLinearGradient(0, top, 0, bottom);
             grad.addColorStop(0, hexA(red, .55)); grad.addColorStop(1, hexA(red, .08));
             g.save(); path(); g.fillStyle = grad; g.fill();
-            // partie déjà jouée plus marquée
             g.beginPath(); g.rect(0, 0, xc, H); g.clip();
             path(); g.fillStyle = hexA(red, .35); g.fill();
             g.restore();
@@ -957,14 +1159,12 @@
             g.fillRect(x0, H / 2 - 2, xc - x0, 4);
         }
 
-        // survol
         if (S.hover != null && !S.scrubbing) {
             const xh = X(S.hover);
             g.strokeStyle = hexA(ink, .5); g.setLineDash([3, 3]); g.lineWidth = 1;
             g.beginPath(); g.moveTo(xh, 2); g.lineTo(xh, H - 2); g.stroke(); g.setLineDash([]);
         }
-        // curseur
-        if (cur != null) {
+        if (has) {
             g.fillStyle = ink;
             g.fillRect(xc - 1.25, 2, 2.5, H - 4);
             g.beginPath(); g.arc(xc, H - 5, 5, 0, Math.PI * 2); g.fill();
@@ -985,74 +1185,583 @@
     function refreshHrrReadout() {
         const box = $('.st-hrr', player);
         if (!box) return;
-        const t = S.frames[S.frameIdx];
         box.hidden = !S.hrr;
         if (S.hrr) {
-            $('strong', box).textContent = fmtPower(hrrAt(Number.isFinite(t) ? t : S.hrr.t[0]));
+            $('strong', box).textContent = fmtPower(hrrAt(hasTimeline() ? S.time : S.hrr.t[0]));
             $('span', box).textContent = 'HRR · max ' + fmtPower(S.hrr.max);
         }
     }
 
-    function syncPlayer() {
-        const a = api();
-        if (!a || !player) return;
-        const frames = a.frames();
-        if (frames.length !== S.frames.length || frames[frames.length - 1] !== S.frames[S.frames.length - 1]) {
-            S.frames = frames;
-        }
-        if (!S.scrubbing) S.frameIdx = Math.min(a.frameIndex(), Math.max(0, frames.length - 1));
-        const n = frames.length;
+    const fmtSpeed = v => '×' + String(v).replace('.', ',');
+
+    function updatePlayerUI() {
+        if (!player) return;
+        const has = hasTimeline();
+        const [t0, t1] = span();
         const playBtn = $('.st-play', player);
-        const playing = a.isPlaying();
-        playBtn.disabled = n < 2;
-        playBtn.innerHTML = icon(playing ? 'pause' : 'play');
-        playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Lecture');
-        const t = frames[S.frameIdx];
-        $('.st-clock strong', player).innerHTML = n ? fmtNum(t, t < 10 ? 1 : 0) + '<small> s</small>' : '—';
-        $('.st-clock span', player).textContent = n ? 'sur ' + fmtTime(frames[n - 1]) : 'pas de résultats animés';
-        timeline.setAttribute('aria-valuemax', String(Math.max(0, n - 1)));
-        timeline.setAttribute('aria-valuenow', String(S.frameIdx));
-        timeline.setAttribute('aria-valuetext', n ? fmtTime(t) : '');
-        $('.st-speed', player).textContent = '×' + String(a.getSpeed()).replace('.', ',');
+        playBtn.disabled = !has;
+        playBtn.innerHTML = icon(S.playing ? 'pause' : 'play');
+        playBtn.setAttribute('aria-label', S.playing ? 'Pause' : 'Lecture');
+        const t = S.time;
+        $('.st-clock strong', player).innerHTML = has ? fmtNum(t, t < 10 ? 1 : 0) + '<small> s</small>' : '—';
+        $('.st-clock span', player).textContent = has ? 'sur ' + fmtTime(t1) : 'pas de résultats animés';
+        timeline.setAttribute('aria-valuemin', String(Math.round(t0)));
+        timeline.setAttribute('aria-valuemax', String(Math.round(t1)));
+        timeline.setAttribute('aria-valuenow', String(Math.round(t)));
+        timeline.setAttribute('aria-valuetext', has ? fmtTime(t) : '');
+        $('.st-speed', player).textContent = fmtSpeed(S.speed);
         refreshHrrReadout();
         drawTimeline();
+        drawDock(false);
+    }
+    // Compatibilité : anciens appels.
+    const syncPlayer = updatePlayerUI;
+
+    function openSpeedMenu(anchor) {
+        closeMenu();
+        menuEl = document.createElement('div');
+        menuEl.className = 'st-menu st-glass st-speed-menu';
+        menuEl.setAttribute('role', 'menu');
+        menuEl.innerHTML = '<div class="st-menu-title">Vitesse de lecture</div>' + SPEEDS.map(v =>
+            `<button type="button" role="menuitemradio" aria-checked="${v === S.speed}" data-speed="${v}"><span>${fmtSpeed(v)}</span></button>`).join('');
+        document.body.appendChild(menuEl);
+        const r = anchor.getBoundingClientRect();
+        menuEl.style.top = 'auto';
+        menuEl.style.bottom = (window.innerHeight - r.top + 8) + 'px';
+        menuEl.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+        menuEl.addEventListener('click', e => {
+            const b = e.target.closest('[data-speed]');
+            if (!b) return;
+            S.speed = parseFloat(b.dataset.speed);
+            closeMenu();
+            updatePlayerUI();
+        });
+        const cur = $('[aria-checked="true"]', menuEl);
+        if (cur) cur.focus();
+        setTimeout(() => document.addEventListener('pointerdown', outsideMenu, true), 0);
     }
 
-    // ── Barre des modes ──────────────────────────────────────────────────
-    // Fumée et températures des parois d'abord ; le reste est secondaire.
-    const MODE_LABELS = [
-        ['smoke', 'Fumée et flammes', 1],
-        ['boundary', 'Températures des parois', 1],
-        ['slice', 'Plans de coupe', 2],
-        ['charts', 'Courbes', 2],
-    ];
-    function renderModes(av, mode) {
-        const show = { smoke: av.smoke, slice: av.slice, boundary: av.boundary, charts: S.csvSeen };
-        const list = MODE_LABELS.filter(([k]) => show[k]);
-        const sig = list.map(([k]) => k).join(',') + '|' + mode;
-        if (sig === S.availSig) return;
+    // ── Couches : chargement ─────────────────────────────────────────────
+    function resetLayers() {
+        S.playing = false;
+        for (const s of L.slices) { try { s.overlay.dispose(); } catch (_) { /* déjà libéré */ } }
+        L.slices = [];
+        if (L.part.layer) { L.part.layer.dispose(); }
+        Object.assign(L.part, { layer: null, on: false, loading: false, available: false, progress: '' });
+        Object.assign(L.wall, { on: false, loaded: false, loading: false, key: null, times: [], quantity: '', units: '', progress: '' });
+        Object.assign(L.smoke, { on: true, times: [], _src: null });
+        S.time = 0;
+    }
+
+    function preferredWallKey() {
+        const sets = api().boundarySets();
+        const pick = sets.find(s => /WALL TEMPERATURE/i.test(s.quantity))
+            || sets.find(s => /TEMPERATURE/i.test(s.quantity)) || sets[0];
+        return pick ? pick.key : null;
+    }
+
+    async function loadWall(key, turnOn) {
+        key = key || L.wall.key || preferredWallKey();
+        if (!key) return false;
+        if (L.wall.loading) { if (turnOn) L.wall.on = true; return false; }
+        L.wall.loading = true; L.wall.key = key; L.wall.progress = '';
+        if (turnOn) L.wall.on = true;
+        renderChips(true);
+        try {
+            const r = await api().loadBoundarySet(key, msg => {
+                const m = /\((\d+) of (\d+)\)/.exec(msg || '');
+                L.wall.progress = m ? `${m[1]}/${m[2]}` : '';
+                renderChips(true);
+            });
+            const w = wallOv();
+            if (!r || !r.frameCount || !w) throw new Error('aucun pas de temps');
+            L.wall.loaded = true;
+            L.wall.times = w.activeFrames.map(f => Number(f.time) || 0);
+            L.wall.quantity = r.quantity || ''; L.wall.units = r.units || '';
+            applyVisibility();
+            applyTime(true);
+            return true;
+        } catch (e) {
+            console.error(e);
+            L.wall.on = false;
+            toast('Températures des parois indisponibles : ' + e.message, 6000);
+            return false;
+        } finally {
+            L.wall.loading = false; L.wall.progress = '';
+            renderChips(true); renderLegends(); updatePlayerUI();
+            if (S.open === 'settings') renderPop();
+        }
+    }
+
+    async function loadParticles(turnOn) {
+        if (L.part.layer || L.part.loading || !L.part.available) { if (turnOn && L.part.layer) { L.part.on = true; applyVisibility(); applyTime(true); } return; }
+        L.part.loading = true; L.part.progress = '';
+        if (turnOn) L.part.on = true;
+        renderChips(true);
+        try {
+            const smv = S.files.find(f => /\.smv$/i.test(f.name));
+            const v = api().getViewer();
+            const layer = new FDSParticles.ParticleLayer(v.scene);
+            const ok = await layer.load(S.files, smv ? await smv.text() : '', (i, n) => {
+                L.part.progress = `${i + 1}/${n}`; renderChips(true);
+            });
+            if (!ok) { layer.dispose(); L.part.available = false; L.part.on = false; toast('Aucune particule enregistrée dans ce calcul.'); return; }
+            // Taille en pixels à l'écran (comme Smokeview) : visible à toute distance.
+            S.partBase = 5;
+            layer.setPointSize(S.partBase * S.partScale);
+            L.part.layer = layer;
+            applyVisibility();
+            applyTime(true);
+        } catch (e) {
+            console.error(e);
+            L.part.on = false;
+            toast('Lecture des particules impossible : ' + e.message, 6000);
+        } finally {
+            L.part.loading = false; L.part.progress = '';
+            renderChips(true); renderLegends(); updatePlayerUI();
+            if (S.open === 'settings') renderPop();
+        }
+    }
+
+    /** Une même grandeur partage une seule échelle (et une seule légende). */
+    function harmonizeSliceRanges() {
+        const byQ = new Map();
+        for (const s of L.slices) {
+            const k = s.quantity + '|' + s.units;
+            const r = byQ.get(k) || { min: Infinity, max: -Infinity };
+            if (Number.isFinite(s.range.min)) r.min = Math.min(r.min, s.range.min);
+            if (Number.isFinite(s.range.max)) r.max = Math.max(r.max, s.range.max);
+            byQ.set(k, r);
+        }
+        for (const s of L.slices) {
+            const r = byQ.get(s.quantity + '|' + s.units);
+            if (r && r.max > r.min) { s.shared = r; s.overlay.setManualRange(r.min, r.max); }
+        }
+    }
+
+    async function addSlice(key) {
+        if (L.slices.some(s => s.key === key) || S.sliceLoading.has(key)) return;
+        S.sliceLoading.add(key);
+        if (S.open === 'slices') renderPop();
+        renderChips(true);
+        try {
+            const r = await api().createSliceLayer(key);
+            const info = api().sliceGroups().find(g => g.key === key) || {};
+            r.overlay.setColorMap(S.sliceMap);
+            r.overlay.setOpacity(S.sliceOpacity);
+            r.overlay.setRenderMode(S.sliceDepth ? 'depth' : 'basic');
+            L.slices.push({ key, info, overlay: r.overlay, times: r.times, range: r.range,
+                quantity: r.quantity || info.quantity, units: r.units || info.units, on: true });
+            harmonizeSliceRanges();
+            applyVisibility();
+            applyTime(true);
+        } catch (e) {
+            console.error(e);
+            toast('Plan de coupe illisible : ' + e.message, 6000);
+        } finally {
+            S.sliceLoading.delete(key);
+            if (S.open === 'slices') renderPop();
+            renderChips(true); renderLegends(); updatePlayerUI();
+        }
+    }
+    function removeSlice(key) {
+        const i = L.slices.findIndex(s => s.key === key);
+        if (i < 0) return;
+        L.slices[i].overlay.dispose();
+        L.slices.splice(i, 1);
+        harmonizeSliceRanges();
+        renderChips(true); renderLegends(); updatePlayerUI();
+    }
+
+    // ── Barre des couches ────────────────────────────────────────────────
+    function layerList() {
+        const a = api();
+        const av = a ? a.availability() : {};
+        const out = [];
+        if (av.smoke) out.push({ k: 'smoke', label: 'Fumée et flammes', on: L.smoke.on && av.smokeLoaded, busy: !av.smokeLoaded && S.smokeLoading });
+        if (a && a.boundarySets().length) out.push({ k: 'wall', label: 'Températures des parois', on: L.wall.on, busy: L.wall.loading, progress: L.wall.progress });
+        if (L.part.available) out.push({ k: 'part', label: 'Particules', on: L.part.on, busy: L.part.loading, progress: L.part.progress });
+        if (av.slice) {
+            const n = L.slices.filter(s => s.on).length;
+            out.push({ k: 'slices', label: 'Plans de coupe', on: n > 0, count: n, busy: S.sliceLoading.size > 0, pop: true, minor: true });
+        }
+        if (S.hrr || S.devc) out.push({ k: 'charts', label: 'Courbes', on: S.dock, minor: true });
+        return out;
+    }
+    function renderChips(force) {
+        if (!modes) return;
+        const list = layerList();
+        const sig = JSON.stringify(list) + S.open;
+        if (!force && sig === S.availSig) return;
         S.availSig = sig;
         modes.hidden = !list.length;
-        const chip = ([k, l, lvl]) => `<button type="button" class="st-chip${lvl === 2 ? ' st-chip-minor' : ''}" data-mode="${k}" aria-pressed="${mode === k}">${esc(l)}</button>`;
-        const main = list.filter(x => x[2] === 1), minor = list.filter(x => x[2] === 2);
+        const chip = it => {
+            const state = it.busy ? `<span class="st-spin" aria-hidden="true"></span>${it.progress ? `<small>${esc(it.progress)}</small>` : ''}`
+                : `<span class="st-check" aria-hidden="true">${it.on ? icon('check', 'st-ico-xs') : ''}</span>`;
+            const count = it.count ? `<span class="st-count">${it.count}</span>` : '';
+            const attrs = it.pop ? `aria-expanded="${S.open === 'slices'}" aria-haspopup="dialog"` : `aria-pressed="${!!it.on}"`;
+            return `<button type="button" class="st-chip st-layer${it.minor ? ' st-chip-minor' : ''}${it.on ? ' is-on' : ''}" data-layer="${it.k}" ${attrs}>${it.pop ? '' : state}${esc(it.label)}${count}${it.pop ? icon('chev', 'st-ico-xs') : ''}</button>`;
+        };
+        const main = list.filter(x => !x.minor), minor = list.filter(x => x.minor);
         modes.innerHTML = main.map(chip).join('') + (main.length && minor.length ? '<span class="st-sep"></span>' : '') + minor.map(chip).join('') +
-            (['smoke', 'slice', 'boundary'].includes(mode) ? `<span class="st-sep"></span><button type="button" class="st-tool" data-pop="settings" data-tip="Réglages" aria-label="Réglages de l’affichage" aria-expanded="${S.open === 'settings'}">${icon('sliders')}</button>` : '');
+            `<span class="st-sep"></span><button type="button" class="st-tool" data-pop="settings" data-tip="Réglages" aria-label="Réglages de l’affichage" aria-expanded="${S.open === 'settings'}">${icon('sliders')}</button>`;
     }
+    // Ancien nom, encore utilisé par sync().
+    const renderModes = () => renderChips(false);
+
     function wireModes() {
         modes.addEventListener('click', async e => {
             const b = e.target.closest('button');
             if (!b) return;
             if (b.dataset.pop) { togglePop('settings', b); return; }
-            const m = b.dataset.mode;
-            if (!m) return;
-            closePop();
-            const a = api();
-            a.setMode(m);
-            const av = a.availability();
-            if (m === 'smoke' && !av.smokeLoaded) { toast('Chargement de la fumée…', 0); await a.loadSmoke(); toast('Fumée chargée.'); }
-            if (m === 'boundary' && !av.boundaryLoaded) { toast('Chargement des températures des parois…', 0); await loadWallTemperature(); toast('Parois chargées.'); }
-            S.availSig = '';
-            sync(true);
+            const k = b.dataset.layer;
+            if (!k) return;
+            if (k === 'slices') { togglePop('slices', b); return; }
+            if (k === 'charts') { setDock(!S.dock); renderChips(true); return; }
+            if (k === 'smoke') {
+                const av = api().availability();
+                if (!av.smokeLoaded) {
+                    S.smokeLoading = true; renderChips(true);
+                    try { await api().loadSmoke(); } finally { S.smokeLoading = false; }
+                    api().stopAllPlayback();
+                    L.smoke.on = true;
+                } else L.smoke.on = !L.smoke.on;
+            } else if (k === 'wall') {
+                if (L.wall.loaded) L.wall.on = !L.wall.on;
+                else if (L.wall.loading) L.wall.on = !L.wall.on;
+                else loadWall(null, true);
+            } else if (k === 'part') {
+                if (L.part.layer) L.part.on = !L.part.on;
+                else if (L.part.loading) L.part.on = !L.part.on;
+                else loadParticles(true);
+            }
+            applyVisibility();
+            applyTime(true);
+            renderChips(true); renderLegends(); updatePlayerUI();
+            if (S.open === 'settings') renderPop();
+        });
+    }
+
+    // ── Plans de coupe (popover) ─────────────────────────────────────────
+    function popSlices(el) {
+        // Un même plan réparti sur plusieurs maillages = une seule ligne.
+        const merged = new Map();
+        for (const g of api().sliceGroups()) {
+            const pos = g.position != null ? g.position.toFixed(3) : g.key;
+            const k = [g.quantity, g.units, g.axis, pos].join('|');
+            if (!merged.has(k)) merged.set(k, Object.assign({}, g, { keys: [] }));
+            merged.get(k).keys.push(g.key);
+        }
+        const byQ = new Map();
+        for (const g of merged.values()) {
+            const k = qtyFr(g.quantity) + (g.units ? ' (' + unitLabel(g.units) + ')' : '');
+            if (!byQ.has(k)) byQ.set(k, []);
+            byQ.get(k).push(g);
+        }
+        for (const list of byQ.values()) list.sort((x, y) => String(x.axis).localeCompare(String(y.axis)) || (x.position || 0) - (y.position || 0));
+        const row = g => {
+            const on = g.keys.every(k => L.slices.some(s => s.key === k));
+            const busy = g.keys.some(k => S.sliceLoading.has(k));
+            const pos = g.position != null ? `${g.axis} = ${fmtNum(g.position, 2)} m` : '';
+            return `<label class="st-slice-row${busy ? ' is-busy' : ''}">
+                <input type="checkbox" data-keys="${esc(g.keys.join('\n'))}" ${on ? 'checked' : ''} ${busy ? 'disabled' : ''}>
+                <span><strong>${esc(g.plane || 'Plan')}</strong><small>${esc(pos || g.label)}</small></span>
+                ${busy ? '<span class="st-spin" aria-label="Chargement"></span>' : ''}
+            </label>`;
+        };
+        el.innerHTML = popHead('Plans de coupe') + `
+            <p class="st-help">Cochez plusieurs plans pour les afficher ensemble. Une même grandeur garde une seule échelle de couleurs.</p>
+            <div class="st-slice-list">${Array.from(byQ.entries()).map(([q, list]) =>
+                `<div class="st-label">${esc(q)}</div>${list.map(row).join('')}`).join('')}</div>
+            ${L.slices.length ? '<button type="button" class="st-btn st-btn-block" data-clear-slices style="margin-top:8px">Retirer tous les plans</button>' : ''}`;
+        on(el, 'change', e => {
+            const keys = (e.target.dataset.keys || '').split('\n').filter(Boolean);
+            if (!keys.length) return;
+            if (e.target.checked) keys.forEach(k => addSlice(k));
+            else { keys.forEach(k => removeSlice(k)); renderPop(); }
+        });
+        on(el, 'click', e => {
+            if (e.target.closest('[data-clear-slices]')) {
+                L.slices.slice().forEach(s => removeSlice(s.key));
+                renderPop();
+            }
+        });
+    }
+
+    // ── Légendes ─────────────────────────────────────────────────────────
+    let legendEl;
+    function gradientCss(sampler) {
+        const stops = [];
+        for (let i = 0; i <= 10; i++) { const c = sampler(i / 10); stops.push(`rgb(${c[0]},${c[1]},${c[2]}) ${i * 10}%`); }
+        return `linear-gradient(90deg, ${stops.join(', ')})`;
+    }
+    function fmtVal(v) {
+        if (!Number.isFinite(v)) return '—';
+        if (v === 0) return '0';
+        const a = Math.abs(v);
+        if (a >= 10000 || (a < 0.01 && v !== 0)) return v.toExponential(1).replace('.', ',');
+        return fmtNum(v, a < 10 ? 2 : a < 100 ? 1 : 0);
+    }
+    const unitLabel = u => ({ C: '°C', 'kW/m2': 'kW/m²', 'kW/m3': 'kW/m³', 'kg/m3': 'kg/m³', '1/m': 'm⁻¹', 'm/s': 'm/s' }[u] || u || '');
+    function legendCard(title, units, min, max, sampler) {
+        return `<div class="st-legend"><div class="st-legend-title">${esc(title)}${units ? ` <span>${esc(unitLabel(units))}</span>` : ''}</div>
+            <div class="st-legend-bar" style="background:${gradientCss(sampler)}"></div>
+            <div class="st-legend-ends"><span>${fmtVal(min)}</span><span>${fmtVal(max)}</span></div></div>`;
+    }
+    const QTY_FR = {
+        'WALL TEMPERATURE': 'Température des parois', 'TEMPERATURE': 'Température',
+        'VISIBILITY': 'Visibilité', 'SOOT VISIBILITY': 'Visibilité', 'VELOCITY': 'Vitesse',
+        'NET HEAT FLUX': 'Flux thermique net', 'GAUGE HEAT FLUX': 'Flux thermique (fluxmètre)',
+        'RADIATIVE HEAT FLUX': 'Flux radiatif', 'CONVECTIVE HEAT FLUX': 'Flux convectif',
+        'SOOT DENSITY': 'Densité de suies', 'EXTINCTION COEFFICIENT': 'Coefficient d’extinction',
+        'CARBON MONOXIDE VOLUME FRACTION': 'Fraction volumique de CO', 'OXYGEN VOLUME FRACTION': 'Fraction volumique d’O₂',
+        'HRRPUV': 'Puissance volumique (HRRPUV)', 'PRESSURE': 'Pression',
+    };
+    const qtyFr = q => QTY_FR[String(q || '').toUpperCase().trim()] || q || '';
+    function renderLegends() {
+        if (!root) return;
+        if (!legendEl) { legendEl = document.createElement('div'); legendEl.className = 'st-legends'; root.appendChild(legendEl); }
+        const cards = [];
+        const w = wallOv();
+        if (L.wall.on && L.wall.loaded && w) {
+            const lut = w._lut();
+            const r = w.lastRange || { min: 0, max: 1 };
+            cards.push(legendCard(qtyFr(L.wall.quantity), L.wall.units, r.min, r.max,
+                t => { const i = Math.round(t * 255) * 4; return [lut[i], lut[i + 1], lut[i + 2]]; }));
+        }
+        const seen = new Set();
+        for (const s of L.slices) {
+            if (!s.on) continue;
+            const k = s.quantity + '|' + s.units;
+            if (seen.has(k)) continue;
+            seen.add(k);
+            const r = s.shared || s.range;
+            const map = s.overlay.mapName;
+            cards.push(legendCard(qtyFr(s.quantity) + ' · plans', s.units, r.min, r.max, t => SliceColorMap.colorMap(t, map)));
+        }
+        if (L.part.on && L.part.layer) {
+            const cls = L.part.layer.activeClasses().filter(c => c.visible);
+            if (cls.length) {
+                cards.push(`<div class="st-legend"><div class="st-legend-title">Particules</div>${cls.map(c =>
+                    `<div class="st-legend-dot"><i style="background:${c.color}"></i>${esc(c.name)}</div>`).join('')}</div>`);
+            }
+        }
+        const html = cards.join('');
+        if (html !== legendEl._html) { legendEl.innerHTML = html; legendEl._html = html; }
+        legendEl.hidden = !cards.length || !document.body.classList.contains('studio');
+    }
+
+    // ── Courbes à côté du modèle ─────────────────────────────────────────
+    function parseCsv(text) {
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        if (lines.length < 3) return null;
+        const split = l => l.split(',').map(s => s.trim().replace(/^"|"$/g, '').trim());
+        const units = split(lines[0]), names = split(lines[1]);
+        const n = names.length;
+        const cols = names.map(() => []);
+        for (let i = 2; i < lines.length; i++) {
+            const c = split(lines[i]);
+            if (c.length < n) continue;
+            for (let k = 0; k < n; k++) cols[k].push(parseFloat(c[k]));
+        }
+        const it = names.findIndex(s => /^time$/i.test(s));
+        if (it < 0 || cols[it].length < 2) return null;
+        const series = [];
+        for (let k = 0; k < n; k++) {
+            if (k === it) continue;
+            const v = cols[k];
+            if (!v.some(Number.isFinite)) continue;
+            series.push({ name: names[k], units: units[k] || '', v });
+        }
+        return { t: cols[it], series };
+    }
+
+    const SERIES_COLORS = ['#4ea1ff', '#ffb020', '#34c38f', '#e05cc8', '#9b8cff', '#46c8d8', '#f07c4a', '#c7d84a'];
+
+    function defaultDevcSelection(devc) {
+        if (!devc) return [];
+        const groups = new Map();
+        devc.series.forEach((s, i) => { const u = s.units; if (!groups.has(u)) groups.set(u, []); groups.get(u).push(i); });
+        const temp = groups.get('C') || Array.from(groups.values()).sort((a, b) => b.length - a.length)[0] || [];
+        return temp.slice(0, 4);
+    }
+
+    function setDock(open) {
+        S.dock = !!open;
+        document.body.classList.toggle('st-dock-open', S.dock);
+        if (S.dock) buildDock();
+        const v = api() && api().getViewer();
+        if (v) setTimeout(() => { v._onResize(); drawTimeline(); drawDock(true); }, 30);
+    }
+
+    let dockEl;
+    function buildDock() {
+        const layout = $('#output-panel .output-layout');
+        if (!layout) return;
+        if (!dockEl) {
+            dockEl = document.createElement('aside');
+            dockEl.className = 'st-dock st-only';
+            dockEl.setAttribute('aria-label', 'Courbes');
+            layout.appendChild(dockEl);
+            dockEl.addEventListener('click', e => {
+                if (e.target.closest('[data-dock-close]')) { setDock(false); renderChips(true); }
+                else if (e.target.closest('[data-pick]')) { S.devcPicker = !S.devcPicker; buildDock(); }
+            });
+            dockEl.addEventListener('change', e => {
+                const i = e.target.dataset.devc;
+                if (i == null) return;
+                const idx = +i;
+                const sel = new Set(S.devcSel);
+                if (e.target.checked) sel.add(idx); else sel.delete(idx);
+                S.devcSel = Array.from(sel).sort((a, b) => a - b);
+                buildDock();
+            });
+            dockEl.addEventListener('input', e => {
+                if (!e.target.matches('[data-filter]')) return;
+                S.devcFilter = e.target.value;
+                const q = S.devcFilter.trim().toLowerCase();
+                $$('.st-devc-item', dockEl).forEach(li => { li.hidden = q && !li.dataset.name.includes(q); });
+            });
+        }
+        const charts = [];
+        if (S.hrr) charts.push({ id: 'hrr', title: 'Puissance du feu (HRR, kW)', units: 'kW', t: S.hrr.t, series: [{ name: 'HRR', v: S.hrr.q, color: '#ff5a5f' }] });
+        if (S.devc && S.devcSel.length) {
+            const byU = new Map();
+            S.devcSel.forEach((i, n) => {
+                const s = S.devc.series[i];
+                if (!s) return;
+                if (!byU.has(s.units)) byU.set(s.units, []);
+                byU.get(s.units).push({ name: s.name, v: s.v, color: SERIES_COLORS[n % SERIES_COLORS.length] });
+            });
+            for (const [u, list] of byU) charts.push({ id: 'devc-' + u, title: 'Capteurs' + (u ? ' (' + unitLabel(u) + ')' : ''), units: u, t: S.devc.t, series: list });
+        }
+        S.dockCharts = charts;
+        const picker = S.devc ? `
+            <div class="st-dock-pick">
+                <button type="button" class="st-btn st-btn-block" data-pick aria-expanded="${!!S.devcPicker}">${icon('sliders', 'st-ico-sm')} Choisir les capteurs <small>${S.devcSel.length} / ${S.devc.series.length}</small></button>
+                ${S.devcPicker ? `<input type="search" class="st-input" data-filter placeholder="Filtrer par nom" value="${esc(S.devcFilter || '')}" aria-label="Filtrer les capteurs">
+                <ul class="st-devc-list">${S.devc.series.map((s, i) => `<li class="st-devc-item" data-name="${esc(s.name.toLowerCase())}"><label><input type="checkbox" data-devc="${i}" ${S.devcSel.includes(i) ? 'checked' : ''}><span>${esc(s.name)}</span><small>${esc(unitLabel(s.units))}</small></label></li>`).join('')}</ul>` : ''}
+            </div>` : '';
+        dockEl.innerHTML = `
+            <header class="st-dock-head"><h2>Courbes</h2><button type="button" class="st-x" data-dock-close aria-label="Fermer les courbes">${icon('x', 'st-ico-sm')}</button></header>
+            <div class="st-dock-body">
+                ${charts.map(c => `<figure class="st-chart" data-chart="${esc(c.id)}">
+                    <figcaption>${esc(c.title)}</figcaption>
+                    <div class="st-chart-plot"><canvas class="st-chart-base"></canvas><canvas class="st-chart-cur"></canvas></div>
+                    <ul class="st-chart-legend">${c.series.map((s, k) => `<li><i style="background:${s.color}"></i><span>${esc(s.name)}</span><b data-k="${k}">—</b></li>`).join('')}</ul>
+                </figure>`).join('') || '<p class="st-help">Choisissez des capteurs pour tracer leurs courbes.</p>'}
+                ${picker}
+            </div>`;
+        if (S.devcFilter) { const f = $('[data-filter]', dockEl); if (f) f.dispatchEvent(new Event('input', { bubbles: true })); }
+        $$('.st-chart-plot', dockEl).forEach(plot => wireChartSeek(plot));
+        drawDock(true);
+    }
+
+    function wireChartSeek(plot) {
+        let drag = false;
+        const seek = e => {
+            const r = plot.getBoundingClientRect();
+            const [t0, t1] = span();
+            const k = Math.max(0, Math.min(1, (e.clientX - r.left - CH.l) / Math.max(1, r.width - CH.l - CH.r)));
+            S.playing = false;
+            setTime(t0 + k * (t1 - t0));
+        };
+        plot.addEventListener('pointerdown', e => { if (!hasTimeline()) return; drag = true; plot.setPointerCapture(e.pointerId); seek(e); });
+        plot.addEventListener('pointermove', e => { if (drag) seek(e); });
+        plot.addEventListener('pointerup', () => { drag = false; });
+        plot.addEventListener('pointercancel', () => { drag = false; });
+    }
+
+    const CH = { l: 44, r: 10, t: 8, b: 20 };
+    function niceTicks(min, max, n) {
+        const span = max - min || 1;
+        const step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+        const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= step0) || step0;
+        const out = [];
+        for (let v = Math.ceil(min / step) * step; v <= max + 1e-9; v += step) out.push(+v.toFixed(10));
+        return out;
+    }
+    function valueAt(t, ts, vs) {
+        const i = frameAt(ts, t);
+        if (i < 0) return NaN;
+        if (i >= ts.length - 1 || ts[i] >= t) return vs[i];
+        const f = (t - ts[i]) / ((ts[i + 1] - ts[i]) || 1);
+        return vs[i] + f * (vs[i + 1] - vs[i]);
+    }
+
+    function drawDock(full) {
+        if (!S.dock || !dockEl || !S.dockCharts) return;
+        const [t0, t1] = span();
+        const ink = cssVar('--text-primary', '#fff'), muted = cssVar('--text-muted', '#8a93b0'), line = cssVar('--border', '#2a3766');
+        const dpr = window.devicePixelRatio || 1;
+        S.dockCharts.forEach(c => {
+            const fig = $(`[data-chart="${CSS.escape(c.id)}"]`, dockEl);
+            if (!fig) return;
+            const base = $('.st-chart-base', fig), cur = $('.st-chart-cur', fig);
+            const W = base.clientWidth, H = base.clientHeight;
+            if (!W || !H) return;
+            const X = t => CH.l + (t - t0) / ((t1 - t0) || 1) * (W - CH.l - CH.r);
+            if (full || base._w !== W || base._span !== t0 + ':' + t1) {
+                base._w = W; base._span = t0 + ':' + t1;
+                for (const cv of [base, cur]) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+                let mn = Infinity, mx = -Infinity;
+                for (const s of c.series) for (let i = 0; i < s.v.length; i++) {
+                    const tt = c.t[i]; if (tt < t0 - 1e-9 || tt > t1 + 1e-9) continue;
+                    const v = s.v[i]; if (!Number.isFinite(v)) continue;
+                    if (v < mn) mn = v; if (v > mx) mx = v;
+                }
+                if (!Number.isFinite(mn)) { mn = 0; mx = 1; }
+                if (mn > 0 && mn < (mx - mn) * 0.5) mn = 0;
+                if (mx === mn) { mx += 1; mn -= 1; }
+                const ticks = niceTicks(mn, mx, 3);
+                mn = Math.min(mn, ticks[0]); mx = Math.max(mx, ticks[ticks.length - 1]);
+                const Y = v => CH.t + (1 - (v - mn) / (mx - mn)) * (H - CH.t - CH.b);
+                c._Y = Y;
+                const g = base.getContext('2d');
+                g.setTransform(dpr, 0, 0, dpr, 0, 0);
+                g.clearRect(0, 0, W, H);
+                g.font = '11px "Barlow Semi Condensed", sans-serif';
+                g.textBaseline = 'middle';
+                g.strokeStyle = line; g.lineWidth = 1; g.fillStyle = muted;
+                for (const v of ticks) {
+                    const y = Math.round(Y(v)) + .5;
+                    g.globalAlpha = .6; g.beginPath(); g.moveTo(CH.l, y); g.lineTo(W - CH.r, y); g.stroke(); g.globalAlpha = 1;
+                    g.textAlign = 'right';
+                    g.fillText(c.id === 'hrr' ? fmtVal(v >= 1000 ? v / 1000 : v) + (v >= 1000 ? ' MW' : '') : fmtVal(v), CH.l - 6, y);
+                }
+                g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+                niceTicks(t0, t1, 4).forEach(v => g.fillText(fmtNum(v, 0) + ' s', Math.max(CH.l + 12, Math.min(W - CH.r - 12, X(v))), H - 4));
+                for (const s of c.series) {
+                    g.strokeStyle = s.color; g.lineWidth = 1.8; g.lineJoin = 'round';
+                    g.beginPath();
+                    let started = false;
+                    for (let i = 0; i < s.v.length; i++) {
+                        const tt = c.t[i], v = s.v[i];
+                        if (!Number.isFinite(v) || tt < t0 - 1e-9 || tt > t1 + 1e-9) { started = false; continue; }
+                        if (started) g.lineTo(X(tt), Y(v)); else { g.moveTo(X(tt), Y(v)); started = true; }
+                    }
+                    g.stroke();
+                }
+            }
+            // Curseur et valeurs à l'instant courant
+            const g2 = cur.getContext('2d');
+            g2.setTransform(dpr, 0, 0, dpr, 0, 0);
+            g2.clearRect(0, 0, W, H);
+            if (!hasTimeline() && c.id !== 'hrr') return;
+            const xc = X(S.time);
+            g2.fillStyle = hexA(ink.startsWith('#') ? ink : '#ffffff', .06);
+            g2.fillRect(xc, CH.t, Math.max(0, W - CH.r - xc), H - CH.t - CH.b);
+            g2.strokeStyle = ink; g2.lineWidth = 1.5;
+            g2.beginPath(); g2.moveTo(Math.round(xc) + .5, CH.t - 2); g2.lineTo(Math.round(xc) + .5, H - CH.b); g2.stroke();
+            c.series.forEach((s, k) => {
+                const v = valueAt(S.time, c.t, s.v);
+                if (Number.isFinite(v) && c._Y) {
+                    g2.beginPath(); g2.arc(xc, c._Y(v), 3.5, 0, Math.PI * 2);
+                    g2.fillStyle = s.color; g2.fill(); g2.strokeStyle = ink; g2.lineWidth = 1.2; g2.stroke();
+                }
+                const b = $(`b[data-k="${k}"]`, fig);
+                if (b) b.textContent = c.id === 'hrr' ? fmtPower(v) : fmtVal(v) + (s.units || c.units ? ' ' + unitLabel(c.units) : '');
+            });
         });
     }
 
@@ -1062,20 +1771,19 @@
         const a = api();
         if (!a) return;
         const av = a.availability();
-        const mode = a.getMode();
-        const hasResults = av.smoke || av.slice || av.boundary;
-        renderModes(av, mode);
+        const hasResults = av.smoke || av.slice || av.boundary || L.part.available;
+        renderChips(!!force);
         emptyEl.hidden = hasResults || a.hasData();
-        rail.hidden = !(hasResults || a.hasData()) || mode === 'charts';
-        player.hidden = !hasResults || mode === 'charts';
+        rail.hidden = !(hasResults || a.hasData());
+        player.hidden = !hasResults;
         if (!S.defaultsApplied && a.hasData()) applyStudioDefaults(hasResults);
         markRail();
-        if (!player.hidden || force) syncPlayer();
-    }
-
-    function loop() {
-        if (document.body.classList.contains('studio') && api() && api().isPlaying() && !S.scrubbing) syncPlayer();
-        requestAnimationFrame(loop);
+        // Le moteur peut ré-afficher ou masquer une couche (changement de
+        // mode, rechargement) : on ré-impose l'état du lecteur.
+        applyVisibility();
+        renderLegends();
+        if (force) updatePlayerUI();
+        else if (!S.playing) { const [t0, t1] = span(); if (S.time < t0 || S.time > t1) setTime(S.time); }
     }
 
     // ── Notifications ────────────────────────────────────────────────────
@@ -1107,9 +1815,7 @@
                 e.preventDefault(); togglePlay();
             } else if (e.shiftKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
                 e.preventDefault(); e.stopImmediatePropagation();
-                const n = S.frames.length; if (n < 2) return;
-                const i = Math.max(0, Math.min(n - 1, S.frameIdx + (e.key === 'ArrowRight' ? 1 : -1)));
-                S.frameIdx = i; api().setFrame(i); syncPlayer();
+                stepFrame(e.key === 'ArrowRight' ? 1 : -1);
             }
         }, true);
     }
@@ -1170,7 +1876,7 @@
         if (oc) oc.addEventListener('walkModeChanged', markRail);
         sync(true);
         setInterval(() => sync(false), 300);
-        requestAnimationFrame(loop);
+        requestAnimationFrame(tick);
     }
 
     window.FDSStudio = { setStudio, present, sync };

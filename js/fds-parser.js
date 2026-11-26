@@ -942,8 +942,21 @@ function resolveFDSColor(item, surfs, defaultColor) {
                 const c = resolveFDSNamedColor(surf.color);
                 if (c) return c;
             }
+            // SURF sans couleur : une teinte distincte par matériau, stable
+            // d'une ouverture à l'autre (ordre de déclaration dans le .fds).
+            if (!/^(INERT|OPEN|MIRROR|PERIODIC)$/i.test(surfName)) {
+                const idx = Object.keys(surfs).indexOf(surfName);
+                return SURF_PALETTE[(idx < 0 ? 0 : idx) % SURF_PALETTE.length].slice();
+            }
         }
     }
 
     return defaultColor || [200, 200, 200];
 }
+
+// Teintes « matériaux » lisibles sur fond sombre, sans rouge vif (réservé au feu).
+const SURF_PALETTE = [
+    [201, 162, 122], [127, 167, 201], [163, 184, 108], [212, 195, 138],
+    [156, 139, 196], [111, 179, 168], [208, 143, 107], [143, 160, 184],
+    [199, 155, 176], [181, 181, 160], [120, 150, 110], [220, 170, 90],
+];

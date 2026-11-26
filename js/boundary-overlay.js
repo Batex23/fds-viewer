@@ -169,7 +169,7 @@
     function parseSimpleParams(body) {
         const params = {};
         const cleaned = body.split(/\r?\n/).map(l => l.replace(/!.*/, ' ')).join(' ');
-        const re = /([A-Z][A-Z0-9_()]*)\s*=\s*([^=]*?)(?=,\s*[A-Z][A-Z0-9_()]*\s*=|$)/gi;
+        const re = /([A-Z][A-Z0-9_()]*)\s*=\s*([^=]*?)(?=[,\s]\s*[A-Z][A-Z0-9_()]*\s*=|$)/gi;
         let m;
         while ((m = re.exec(cleaned)) !== null) {
             params[m[1].toUpperCase()] = m[2].replace(/,$/, '').trim();
@@ -374,15 +374,21 @@
             const smv = files.find(f => /\.smv$/i.test(f.name));
             const fds = files.find(f => /\.fds$/i.test(f.name));
             if (!smv) throw new Error('Aucun fichier .smv dans le dossier.');
-            if (!fds) throw new Error('Aucun fichier .fds dans le dossier (nécessaire pour les boundaries).');
 
             this.smvContext = parseSmvForBoundary(await smv.text(), smv.name);
-            this.fdsContext = parseFdsForBoundary(await fds.text(), fds.name);
+            try {
+                if (!fds) throw new Error('Aucun fichier .fds ni maillage dans le .smv.');
+                this.fdsContext = parseFdsForBoundary(await fds.text(), fds.name);
+            } catch (e) {
+                // Le .smv suffit pour placer les parois : le .fds n'est qu'un complément.
+                if (!this.smvContext.meshes.length) throw e;
+                this.fdsContext = { fileName: fds ? fds.name : '', meshes: [], objects: [], vents: [] };
+            }
             this.meshContext = this.smvContext.meshes.length ? this.smvContext.meshes : this.fdsContext.meshes;
 
             return {
                 smvName: smv.name,
-                fdsName: fds.name,
+                fdsName: fds ? fds.name : "—",
                 meshCount: this.meshContext.length,
                 objectCount: this.fdsContext.objects.length,
                 ventCount: this.fdsContext.vents.length,
@@ -502,42 +508,150 @@
             return { min, max, constant };
         }
 
-        _renderCurrentFrame() {
+        /** Min/max over every frame of the group (cached). A fixed scale lets
+         *  the colours be compared across time, like Smokeview's global bounds. */
+        _globalRange(group) {
+            const robust = !!this.robustRange;
+            const cacheKey = robust ? '_globalRangeRobust' : '_globalRangePlain';
+            if (group[cacheKey]) return group[cacheKey];
+            let min = Infinity, max = -Infinity;
+            const sample = [];
+            const nf = group.frames.length;
+            const stride = Math.max(1, Math.floor(nf / 60));
+            for (let fi = 0; fi < nf; fi++) {
+                const take = robust && (fi % stride === 0);
+                for (const entry of group.entries) {
+                    const ds = entry.dataset;
+                    const sf = entry.frameMap ? entry.frameMap[fi] : fi;
+                    for (let pi = 0; pi < ds.patches.length; pi++) {
+                        const vals = ds.getPatchData(sf, pi);
+                        for (let k = 0; k < vals.length; k++) {
+                            const v = vals[k];
+                            if (!Number.isFinite(v)) continue;
+                            if (v < min) min = v;
+                            if (v > max) max = v;
+                            if (take && (k & 3) === 0) sample.push(v);
+                        }
+                    }
+                }
+            }
+            if (!Number.isFinite(min)) return { min: 0, max: 1, constant: false };
+            if (robust && sample.length > 50) {
+                sample.sort((a, b) => a - b);
+                min = sample[Math.floor(sample.length * 0.01)];
+                max = sample[Math.floor(sample.length * 0.99)];
+            }
+            const constant = Math.abs(max - min) < 1e-12;
+            if (constant) { const pad = Math.max(Math.abs(min) * 0.02, 0.5); min -= pad; max += pad; }
+            const r = { min, max, constant };
+            group[cacheKey] = r;
+            return r;
+        }
+
+        _lut() {
+            if (this._lutCache && this._lutCache.name === this.colorMap) return this._lutCache.data;
+            const data = new Uint8ClampedArray(256 * 4);
+            for (let i = 0; i < 256; i++) {
+                const t = i / 255;
+                const c = colorForMap(this.colorMap, t);
+                data[i * 4] = Math.round(c[0] * 255);
+                data[i * 4 + 1] = Math.round(c[1] * 255);
+                data[i * 4 + 2] = Math.round(c[2] * 255);
+                data[i * 4 + 3] = this.colorMap === 'diagnostic' ? 235 : Math.round(45 + 210 * Math.sqrt(t));
+            }
+            this._lutCache = { name: this.colorMap, data };
+            return data;
+        }
+
+        _paintPatch(item, values, range) {
+            const { width, height, flipRows, image } = item;
+            const lut = this._lut();
+            const px = image.data;
+            const span = Math.max(range.max - range.min, 1e-12);
+            const scale = 255 / span;
+            for (let y = 0; y < height; y++) {
+                const sy = flipRows ? height - 1 - y : y;
+                for (let x = 0; x < width; x++) {
+                    const v = values[x + width * sy];
+                    const o = 4 * (x + width * y);
+                    if (!Number.isFinite(v)) { px[o + 3] = 0; continue; }
+                    let idx = range.constant ? 128 : ((v - range.min) * scale) | 0;
+                    if (idx < 0) idx = 0; else if (idx > 255) idx = 255;
+                    const l = idx * 4;
+                    px[o] = lut[l]; px[o + 1] = lut[l + 1]; px[o + 2] = lut[l + 2]; px[o + 3] = lut[l + 3];
+                }
+            }
+            item.ctx.putImageData(image, 0, 0);
+            item.texture.needsUpdate = true;
+        }
+
+        /** Build one mesh per patch once per group; frames only repaint textures. */
+        _ensurePatchMeshes(group) {
+            if (this._meshGroupKey === group.key && this._patchItems) return this._patchItems;
             this._clearGroup();
-            if (!this.activeGroup || !this.activeFrames.length) return;
-            const patches = this._collectFramePatches(this.activeGroup, this.frameIndex);
-            if (!patches.length) { this.lastRange = { min: 0, max: 1, constant: false }; return; }
-            const range = this._resolveRange(patches);
+            const items = [];
+            const depthOn = this.renderMode === 'depth';
+            for (let ei = 0; ei < group.entries.length; ei++) {
+                const entry = group.entries[ei];
+                const ds = entry.dataset;
+                const mesh = this._meshForEntry(entry);
+                for (let pi = 0; pi < ds.patches.length; pi++) {
+                    const geo = patchGeometry(mesh, ds.patches[pi]);
+                    if (!geo) continue;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.max(Math.round(geo.width), 1);
+                    canvas.height = Math.max(Math.round(geo.height), 1);
+                    const ctx = canvas.getContext('2d');
+                    const image = ctx.createImageData(canvas.width, canvas.height);
+                    const texture = new THREE.CanvasTexture(canvas);
+                    texture.minFilter = THREE.LinearFilter;
+                    texture.magFilter = THREE.NearestFilter;
+                    texture.flipY = false;
+                    texture.generateMipmaps = false;
+                    if (THREE.sRGBEncoding) texture.encoding = THREE.sRGBEncoding;
+                    texture.wrapS = THREE.ClampToEdgeWrapping;
+                    texture.wrapT = THREE.ClampToEdgeWrapping;
+                    const material = new THREE.MeshBasicMaterial({
+                        map: texture, transparent: true, opacity: this.opacity,
+                        side: THREE.DoubleSide, depthWrite: false, depthTest: depthOn,
+                    });
+                    const m = new THREE.Mesh(quadGeometry(geo.corners), material);
+                    m.renderOrder = depthOn ? 1 : 6;
+                    m.frustumCulled = false;
+                    this.group.add(m);
+                    items.push({ ei, pi, width: canvas.width, height: canvas.height,
+                        flipRows: geo.flipRows, ctx, image, texture });
+                }
+            }
+            this._patchItems = items;
+            this._meshGroupKey = group.key;
+            this._paintedColorMap = null;
+            return items;
+        }
+
+        _renderCurrentFrame() {
+            if (!this.activeGroup || !this.activeFrames.length) { this._clearGroup(); return; }
+            const group = this.activeGroup;
+            const items = this._ensurePatchMeshes(group);
+            if (!items.length) { this.lastRange = { min: 0, max: 1, constant: false }; return; }
+            const fi = this.frameIndex;
+            let range;
+            if (!this.autoRange && Number.isFinite(this.manualMin) && Number.isFinite(this.manualMax) && this.manualMax > this.manualMin) {
+                range = { min: this.manualMin, max: this.manualMax, constant: false };
+            } else {
+                range = this._globalRange(group);
+            }
             this.lastRange = range;
-            for (const patch of patches) {
-                const canvas = makeTextureCanvas(
-                    patch.values, patch.width, patch.height,
-                    range.min, range.max, this.colorMap, range.constant, patch.flipRows
-                );
-                const texture = new THREE.CanvasTexture(canvas);
-                texture.minFilter = THREE.LinearFilter;
-                texture.magFilter = THREE.NearestFilter;
-                texture.flipY = false;
-                if (THREE.sRGBEncoding) texture.encoding = THREE.sRGBEncoding;
-                texture.wrapS = THREE.ClampToEdgeWrapping;
-                texture.wrapT = THREE.ClampToEdgeWrapping;
-                const depthOn = this.renderMode === 'depth';
-                const material = new THREE.MeshBasicMaterial({
-                    map: texture,
-                    transparent: true,
-                    opacity: this.opacity,
-                    side: THREE.DoubleSide,
-                    depthWrite: false,
-                    depthTest: depthOn, // basic = false (always on top), depth = true (OBSTs occlude)
-                });
-                const mesh = new THREE.Mesh(quadGeometry(patch.corners), material);
-                mesh.renderOrder = depthOn ? 1 : 6;
-                mesh.frustumCulled = false;
-                this.group.add(mesh);
+            for (const item of items) {
+                const entry = group.entries[item.ei];
+                const sf = entry.frameMap ? entry.frameMap[fi] : fi;
+                this._paintPatch(item, entry.dataset.getPatchData(sf, item.pi), range);
             }
         }
 
         _clearGroup() {
+            this._patchItems = null;
+            this._meshGroupKey = null;
             while (this.group.children.length) {
                 const child = this.group.children.pop();
                 if (child.geometry) child.geometry.dispose();

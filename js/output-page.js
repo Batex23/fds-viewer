@@ -733,6 +733,11 @@
             }
             populateSliceSetSelector(availableGroups);
             refreshVismapQuantityOptions();
+            // Lecteur simplifié : les plans sont chargés à la demande, en couches.
+            if (document.body.classList.contains('studio')) {
+                setStatus(availableGroups.length + ' plan(s) de coupe disponible(s).');
+                return;
+            }
             // Pick the largest group by default
             const chosen = availableGroups.slice().sort(
                 (a, b) => b.items.length - a.items.length || a.sliceIndex - b.sliceIndex)[0];
@@ -912,7 +917,7 @@
         pause() { if (isPlayingNow()) { const b = document.getElementById('output-vp-play-btn'); if (b) b.click(); } },
         getSpeed: () => _playbackSpeed,
         setSpeed(v) {
-            _playbackSpeed = Math.max(0.25, Math.min(8, Number(v) || 1));
+            _playbackSpeed = Math.max(0.25, Math.min(16, Number(v) || 1));
             if (isPlayingNow()) { this.pause(); this.play(); }
         },
         loadSmoke() { const v = outputViewer || ensureViewer(); return handleSmokeLoad(v); },
@@ -945,6 +950,74 @@
             }
             applyClip(v);
         },
+
+        // ── Couches simultanées (lecteur js/studio.js) ──────────────────
+        // Le lecteur garde son propre temps et pilote chaque couche ; ces
+        // accès évitent de passer par la barre de lecture partagée.
+        overlays: () => ({ smoke: smokeOverlay, boundary: boundaryOverlay }),
+        stopAllPlayback() {
+            stopPlayback(); stopSmokePlayback(); stopBoundaryPlayback(); stopVismapPlayback();
+        },
+        boundarySets() {
+            const ctx = boundaryOverlay && boundaryOverlay.smvContext;
+            if (!ctx || !ctx.boundaryGroups) return [];
+            return Array.from(ctx.boundaryGroups.entries()).map(([key, g]) => ({
+                key, quantity: g.quantity || '', units: g.units || '', files: g.entries.length,
+            }));
+        },
+        async loadBoundarySet(key, onStatus) {
+            const v = outputViewer || ensureViewer();
+            const ov = ensureBoundaryOverlay(v);
+            stopBoundaryPlayback();
+            const r = await ov.loadSet(key, onStatus);
+            return r;
+        },
+        sliceGroups() {
+            const ctx = currentSliceContext();
+            return (availableGroups || []).map(g => {
+                const h = g.header || {};
+                const ix = h.indices || null;
+                let plane = '', axis = null, idx = null;
+                if (ix) {
+                    if (ix.i1 === ix.i2) { plane = 'Vertical (YZ)'; axis = 0; idx = ix.i1; }
+                    else if (ix.j1 === ix.j2) { plane = 'Vertical (XZ)'; axis = 1; idx = ix.j1; }
+                    else if (ix.k1 === ix.k2) { plane = 'Horizontal (XY)'; axis = 2; idx = ix.k1; }
+                    else plane = 'Volume 3D';
+                }
+                let position = null;
+                const item = g.items && g.items[0];
+                const mesh = ctx && ctx.meshes && item ? ctx.meshes[item.info.meshIndex - 1] : null;
+                if (mesh && axis != null && mesh.ijk && mesh.xb) {
+                    const a = mesh.xb[axis * 2], b = mesh.xb[axis * 2 + 1];
+                    position = a + (b - a) * idx / Math.max(1, mesh.ijk[axis]);
+                }
+                return {
+                    key: g.key, label: g.label, quantity: h.quantity || 'Slice', units: h.units || '',
+                    plane, axis: axis == null ? null : 'xyz'[axis], position, files: g.items.length,
+                };
+            });
+        },
+        /** Charge un plan de coupe dans une couche indépendante. */
+        async createSliceLayer(key) {
+            const v = outputViewer || ensureViewer();
+            const group = (availableGroups || []).find(g => g.key === key);
+            if (!group) throw new Error('Plan de coupe introuvable.');
+            const { dataset } = await datasetFromSliceGroup(group);
+            const ov = new SliceOverlay(v.scene);
+            ov.robustRange = true;
+            ov.setDataset(dataset, currentSliceContext());
+            const range = SliceUtil.computeGlobalPercentileRange
+                ? SliceUtil.computeGlobalPercentileRange(dataset, 0.01, 0.99)
+                : SliceUtil.computeGlobalRange(dataset);
+            ov.autoRange = false;
+            ov.setManualRange(range.min, range.max);
+            return {
+                overlay: ov, dataset, range,
+                times: dataset.frames.map(f => Number(f.time) || 0),
+                quantity: dataset.quantity || '', units: dataset.units || '',
+            };
+        },
+        sliceContext: () => currentSliceContext(),
     };
 
     /**
