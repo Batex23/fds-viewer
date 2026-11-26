@@ -263,6 +263,12 @@
             // newer one's. Each call captures its generation and checks before
             // committing state.
             const gen = (this._loadGen = (this._loadGen || 0) + 1);
+            // Progression globale (toutes grandeurs confondues) pour l'interface.
+            const pending = keys.filter(k => !this.loadedGroups.has(k));
+            const total = pending.reduce((n, k) => n + ((this.smvContext.groups.get(k) || {}).entries || []).length, 0);
+            const prog = this._prog = { done: 0, total, file: '', active: total > 0 };
+            global.__fdsSmokeProgress = prog;
+            try {
             for (const key of keys) {
                 if (!this.loadedGroups.has(key)) {
                     if (setStatus) setStatus('Loading ' + key + '...');
@@ -271,6 +277,7 @@
                     this.loadedGroups.set(key, loaded);
                 }
             }
+            } finally { prog.active = false; }
             if (gen !== this._loadGen) return { frameCount: 0, note: 'cancelled' };
             const groups = keys.map(k => this.loadedGroups.get(k)).filter(Boolean);
             const alignment = alignGroupsByTime(groups);
@@ -290,9 +297,11 @@
                 const e = group.entries[i];
                 const file = this.fileMap.get(e.fileName.toLowerCase());
                 if (!file) throw new Error('Fichier Smoke3D manquant : ' + e.fileName);
+                if (this._prog) { this._prog.file = e.fileName; }
                 if (setStatus) setStatus('Loading ' + e.fileName + ' (' + (i + 1) + ' of ' + group.entries.length + ')...');
                 const dataset = Smoke3DReader.parse(await file.arrayBuffer(), e.fileName);
                 if (dataset.truncatedAt != null) truncated.push(e.fileName);
+                if (this._prog) this._prog.done++;
                 entries.push({ ...e, dataset });
             }
             const alignment = alignEntryFrames(entries);

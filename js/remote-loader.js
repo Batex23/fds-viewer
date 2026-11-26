@@ -775,7 +775,7 @@
         openRemote(src);
     }
 
-    window.FDSRemote = { open: openRemote, extractDriveId, shareLinkForDrive, openShare, pickFromDrive, signIn, hasOAuth, isSignedIn: tokenValid };
+    window.FDSRemote = { downloads: () => ({ active: Array.from(progress.active.entries()).map(([name, e]) => ({ name, loaded: e.loaded, total: e.total })) }), open: openRemote, extractDriveId, shareLinkForDrive, openShare, pickFromDrive, signIn, hasOAuth, isSignedIn: tokenValid };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();

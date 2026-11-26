@@ -1153,6 +1153,8 @@
 
     // ── Smoke3D loading + rendering ────────────────────────────────────────
     function setSmokeStatus(msg, isError) {
+        // Suivi de chargement pour le lecteur (barre de progression).
+        window.__fdsSmokeStatus = { msg: String(msg || ''), error: !!isError, at: Date.now() };
         const el = document.getElementById('output-smoke-status');
         if (!el) return;
         el.textContent = msg;

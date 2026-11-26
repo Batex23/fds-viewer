@@ -206,6 +206,7 @@
         a.setMode('smoke');
         a.stopAllPlayback();
         L.smoke.on = true;
+        await buildSmvGeometry();
         const [t0] = span();
         S.time = t0;
         applyVisibility();
@@ -249,9 +250,52 @@
         if (!v) return;
         setCtl('output-scene-grayscale', S.look.colors === 'gray');
         if (v.refreshSurfaceColors) v.refreshSurfaceColors();
+        if (smvParsed && smvGeo && smvGeo._distinct !== (S.look.colors === 'distinct')) {
+            smvGeo._distinct = S.look.colors === 'distinct';
+            rebuildSmvGeometry();
+        }
+        hideBoundaryVents();
         if (v.setShowObstEdges) v.setShowObstEdges(!!S.look.edges);
         if (document.body.classList.contains('studio')) v.setBackground(BG[S.look.bg] || BG.slate);
     }
+    // ── Géométrie du .smv : murs percés par les HOLE, portes mobiles ─────
+    let smvGeo = null, smvParsed = null;
+    async function buildSmvGeometry() {
+        if (smvGeo) { smvGeo.dispose(); smvGeo = null; }
+        smvParsed = null;
+        const smv = S.files.find(f => /\.smv$/i.test(f.name));
+        if (!smv || !window.FDSSmvGeometry) return;
+        try { smvParsed = FDSSmvGeometry.parse(await smv.text()); }
+        catch (e) { console.warn('[smv]', e); return; }
+        rebuildSmvGeometry();
+    }
+    function rebuildSmvGeometry() {
+        const v = api() && api().getViewer();
+        if (!v || !smvParsed) return;
+        if (!smvGeo) smvGeo = new FDSSmvGeometry.SmvGeometry(v);
+        smvGeo._distinct = S.look.colors === 'distinct';
+        const n = smvGeo.build(smvParsed, { distinct: smvGeo._distinct });
+        if (!n) { smvGeo.dispose(); smvGeo = null; return; }
+        v.obstGroup.add(smvGeo.group);
+        // Les OBST lus dans le .fds ne tiennent pas compte des HOLE : on
+        // affiche à la place la géométrie réellement calculée par FDS.
+        v.obstGroup.children.forEach(c => { if (c.userData && c.userData.type === 'OBST') c.visible = false; });
+        setLayer('holes', false);
+        if (v.setShowObstEdges) v.setShowObstEdges(!!S.look.edges);
+        if (v._grayscale) v.setGrayscale(true);
+        smvGeo.setTime(S.time);
+    }
+    /** Évents OPEN / MIRROR (limites du domaine) : non affichés, comme dans PyroSim. */
+    function hideBoundaryVents() {
+        const v = api() && api().getViewer();
+        if (!v || !v.ventGroup) return;
+        v.ventGroup.children.forEach(c => {
+            const sid = c.userData && c.userData.surf_id;
+            const name = String(Array.isArray(sid) ? sid[0] : sid || '').replace(/['"]/g, '').trim();
+            if (/^(OPEN|MIRROR|PERIODIC)$/i.test(name)) c.visible = false;
+        });
+    }
+
     // Le changement de thème clair/sombre ne doit pas écraser le fond choisi.
     const _setSceneBg = window.outputPageSetSceneBackground;
     window.outputPageSetSceneBackground = function (bg) {
@@ -709,6 +753,7 @@
                 <div class="st-hint">« Comme PyroSim » reprend les couleurs du .fds (COLOR, RGB) et le beige par défaut de FDS.</div>
             </div>
             <div class="st-field">
+                ${smvGeo && smvGeo.dynamic.length ? `<div class="st-hint" style="margin:-4px 0 12px">${smvGeo.dynamic.length} obstruction(s) mobile(s) (portes, trappes) : elles s’ouvrent et se ferment avec la lecture. Repères sur la frise : <b style="color:#2ec4b6">▼</b> ouverture, <b style="color:#ff9f1c">▼</b> fermeture.</div>` : ''}
                 <div class="st-label">Fond</div>
                 ${seg('bg', [['slate', 'Ardoise'], ['light', 'Clair'], ['dark', 'Nuit']])}
             </div>
@@ -1017,6 +1062,7 @@
     /** Donne à chaque couche visible le pas de temps de S.time. */
     function applyTime(force) {
         const t = S.time;
+        if (smvGeo) smvGeo.setTime(t);
         const sm = smokeOv();
         if (sm && L.smoke.on && sm.activeFrames && sm.activeFrames.length) {
             const i = frameAt(smokeTimes(), t);
@@ -1063,6 +1109,7 @@
     }
 
     function tick(now) {
+        if (!S.lastLoadUi || now - S.lastLoadUi > 150) { S.lastLoadUi = now; renderLoad(); }
         if (S.playing && !S.scrubbing && document.body.classList.contains('studio')) {
             const dt = Math.min(0.1, Math.max(0, (now - S.lastTick) / 1000));
             const [, t1] = span();
@@ -1080,6 +1127,68 @@
         }
         S.lastTick = now;
         requestAnimationFrame(tick);
+    }
+
+    // ── Barre de chargement ──────────────────────────────────────────────
+    let loadEl;
+    const fmtMo = b => (b / 1048576).toLocaleString('fr-FR', { maximumFractionDigits: b < 10485760 ? 1 : 0 }) + ' Mo';
+    function smokeLoadingTask() {
+        const a = api();
+        const av = a ? a.availability() : {};
+        if (!av.smoke || av.smokeLoaded) return null;
+        const p = window.__fdsSmokeProgress;
+        if (p && p.active && p.total) {
+            // i = fichier en cours (1..n), sur l'ensemble suie + flammes
+            return { label: 'Fumée et flammes', file: p.file, i: Math.min(p.total, p.done + 1), n: p.total };
+        }
+        const st = window.__fdsSmokeStatus;
+        if (!st || !/^Loading /.test(st.msg) || Date.now() - st.at > 300000) return null;
+        return { label: 'Fumée et flammes', file: '', i: 0, n: 0 };
+    }
+    function loadTasks() {
+        const tasks = [];
+        const sm = smokeLoadingTask();
+        if (sm) tasks.push(sm);
+        const frac = p => { const m = /(\d+)\/(\d+)/.exec(p || ''); return m ? { i: +m[1], n: +m[2] } : { i: 0, n: 0 }; };
+        if (L.part.loading) tasks.push(Object.assign({ label: 'Particules' }, frac(L.part.progress)));
+        if (L.wall.loading) tasks.push(Object.assign({ label: 'Températures des parois' }, frac(L.wall.progress)));
+        if (S.sliceLoading.size) tasks.push({ label: S.sliceLoading.size > 1 ? S.sliceLoading.size + ' plans de coupe' : 'Plan de coupe', i: 0, n: 0 });
+        return tasks;
+    }
+    function renderLoad() {
+        if (!root) return;
+        if (!loadEl) {
+            loadEl = document.createElement('div');
+            loadEl.className = 'st-load st-glass';
+            loadEl.setAttribute('role', 'status');
+            loadEl.setAttribute('aria-live', 'polite');
+            loadEl.hidden = true;
+            root.appendChild(loadEl);
+        }
+        const tasks = document.body.classList.contains('studio') ? loadTasks() : [];
+        if (!tasks.length) { if (!loadEl.hidden) { loadEl.hidden = true; loadEl._sig = ''; } return; }
+        const t = tasks[0];
+        const dl = window.FDSRemote && FDSRemote.downloads ? FDSRemote.downloads().active : [];
+        const cur = dl[0];
+        const f = cur && cur.total ? Math.min(1, cur.loaded / cur.total) : 0;
+        let pct = null;
+        if (t.n) pct = Math.max(0.02, Math.min(1, ((t.i - 1) + f) / t.n));
+        else if (cur && cur.total) pct = f;
+        const parts = [];
+        if (t.n) parts.push(`Fichier ${t.i} sur ${t.n}`);
+        if (cur && cur.total > 262144) parts.push(`${fmtMo(cur.loaded)} / ${fmtMo(cur.total)}`);
+        else if (cur && cur.loaded > 262144) parts.push(fmtMo(cur.loaded) + ' reçus');
+        else if (t.n) parts.push(cur ? 'téléchargement' : 'lecture des données');
+        const next = tasks.slice(1).map(x => x.label).join(', ');
+        const sig = [t.label, parts.join(), pct == null ? 'x' : pct.toFixed(3), next].join('|');
+        if (sig === loadEl._sig) return;
+        loadEl._sig = sig;
+        loadEl.hidden = false;
+        loadEl.innerHTML = `
+            <div class="st-load-head"><span class="st-spin" aria-hidden="true"></span><strong>Chargement : ${esc(t.label)}</strong>${pct != null ? `<span class="st-load-pct">${Math.round(pct * 100)} %</span>` : ''}</div>
+            <div class="st-load-bar${pct == null ? ' is-indet' : ''}"><i style="width:${pct == null ? 35 : (pct * 100).toFixed(1)}%"></i></div>
+            <div class="st-load-meta">${esc(parts.join(' · ') || 'Patientez…')}</div>
+            ${next ? `<div class="st-load-next">Ensuite : ${esc(next)}</div>` : ''}`;
     }
 
     // ── Lecteur ───────────────────────────────────────────────────────────
@@ -1152,7 +1261,14 @@
         if (S.hover == null) { tip.hidden = true; return; }
         const r = timeline.getBoundingClientRect();
         const hrr = hrrAt(S.hover);
-        tip.textContent = fmtTime(S.hover) + (hrr != null ? ' · ' + fmtPower(hrr) : '');
+        let door = '';
+        if (smvGeo) {
+            const [t0, t1] = span();
+            const tol = (t1 - t0) * 6 / Math.max(1, r.width);
+            const near = smvGeo.eventTimes().filter(e => Math.abs(e.t - S.hover) <= tol);
+            if (near.length) door = ' · ' + (near.length > 1 ? near.length + ' changements de porte' : (near[0].show ? 'fermeture' : 'ouverture') + (near[0].label && !/^OB_/.test(near[0].label) ? ' ' + near[0].label : ''));
+        }
+        tip.textContent = fmtTime(S.hover) + (hrr != null ? ' · ' + fmtPower(hrr) : '') + door;
         tip.style.left = Math.max(40, Math.min(r.width - 40, clientX - r.left)) + 'px';
         tip.hidden = false;
     }
@@ -1211,6 +1327,15 @@
             g.fillRect(x0, H / 2 - 2, xc - x0, 4);
         }
 
+        // Repères d'ouverture / fermeture des portes (obstructions mobiles)
+        if (smvGeo && has) {
+            for (const e of smvGeo.eventTimes()) {
+                if (e.t < t0 || e.t > t1) continue;
+                const x = X(e.t);
+                g.fillStyle = e.show ? '#ff9f1c' : '#2ec4b6';
+                g.beginPath(); g.moveTo(x - 4, 2); g.lineTo(x + 4, 2); g.lineTo(x, 8); g.closePath(); g.fill();
+            }
+        }
         if (S.hover != null && !S.scrubbing) {
             const xh = X(S.hover);
             g.strokeStyle = hexA(ink, .5); g.setLineDash([3, 3]); g.lineWidth = 1;
@@ -1430,7 +1555,7 @@
         const a = api();
         const av = a ? a.availability() : {};
         const out = [];
-        if (av.smoke) out.push({ k: 'smoke', label: 'Fumée et flammes', on: L.smoke.on && av.smokeLoaded, busy: !av.smokeLoaded && S.smokeLoading });
+        if (av.smoke) out.push({ k: 'smoke', label: 'Fumée et flammes', on: L.smoke.on && av.smokeLoaded, busy: !av.smokeLoaded && (S.smokeLoading || !!smokeLoadingTask()) });
         if (a && a.boundarySets().length) out.push({ k: 'wall', label: 'Températures des parois', on: L.wall.on, busy: L.wall.loading, progress: L.wall.progress });
         if (L.part.available) out.push({ k: 'part', label: 'Particules', on: L.part.on, busy: L.part.loading, progress: L.part.progress });
         if (av.slice) {
