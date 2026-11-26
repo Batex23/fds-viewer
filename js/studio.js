@@ -1358,6 +1358,7 @@
             const p = pickModelPoint(e.clientX, e.clientY);
             if (!p) { toast('Cliquez sur un élément visible du modèle (mur, sol, objet).'); return; }
             const v = api().getViewer();
+            const mode = S.placing;
             if (S.placing === 'new') {
                 // Étiquette décalée vers le haut et la droite de l'écran.
                 const dist = v.camera.position.distanceTo(p);
@@ -1381,7 +1382,7 @@
             host.addEventListener('pointerup', swallow, { capture: true, once: true });
             host.addEventListener('mouseup', swallow, { capture: true, once: true });
             marksChanged();
-            toast(S.markEdit && S.placing === null ? 'Repère placé : donnez-lui un titre.' : 'Repère déplacé.', 2500);
+            toast(mode === 'new' ? 'Repère placé : donnez-lui un titre.' : 'Repère déplacé.', 2500);
             if (S.open !== 'marks') togglePop('marks', $('[data-pop="marks"]', rail)); else renderPop();
             setTimeout(() => { const i = pop && $('[data-mtitle]', pop); if (i) i.focus(); }, 30);
         }, true);
