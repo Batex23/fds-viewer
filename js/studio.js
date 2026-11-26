@@ -2,7 +2,7 @@
  * Lecteur de simulation — interface simplifiée posée sur le moteur existant.
  *
  * Principe : la vue 3D des résultats occupe l'écran. Par-dessus :
- *   - une barre d'outils à gauche (Vues, Coupe, Bâtiment, Visite, Capture) ;
+ *   - une barre d'outils à gauche (Vues, Coupe, Bâtiment, Capture) ;
  *   - en haut, le choix de la donnée affichée (Fumée, Plans de coupe,
  *     Parois, Courbes) et ses réglages essentiels ;
  *   - en bas, un lecteur façon vidéo dont la frise porte la courbe HRR.
@@ -322,7 +322,6 @@
                 <button type="button" class="st-tool" data-pop="cut" data-tip="Couper le bâtiment" aria-label="Couper le bâtiment" aria-expanded="false">${icon('cut')}</button>
                 <button type="button" class="st-tool" data-pop="building" data-tip="Affichage du bâtiment" aria-label="Affichage du bâtiment" aria-expanded="false">${icon('building')}</button>
                 <hr>
-                <button type="button" class="st-tool" data-act="walk" data-tip="Visite à la première personne" aria-label="Visite à la première personne">${icon('walk')}</button>
                 <button type="button" class="st-tool" data-act="capture" data-tip="Capturer l’image" aria-label="Capturer l’image">${icon('camera')}</button>
             </nav>
             <div class="st-modes st-glass" role="toolbar" aria-label="Donnée affichée" hidden></div>
@@ -477,8 +476,10 @@
             const fi = ctl('file-input');
             if (fi) fi.click();
         } else if (act === 'open-sample') {
-            const b = ctl('load-sample');
-            if (b) b.click();
+            // Simulation d'exemple publique sur le Drive (voir js/config.js).
+            const id = (window.FDS_VIEWER_CONFIG || {}).sampleDriveId;
+            if (id) location.assign(location.pathname + '?drive=' + encodeURIComponent(id));
+            else { const b = ctl('load-sample'); if (b) b.click(); }
         } else if (act === 'present') {
             present(true);
         } else if (act === 'expert') {

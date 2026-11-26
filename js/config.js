@@ -18,5 +18,7 @@
  */
 window.FDS_VIEWER_CONFIG = {
     driveApiKey: 'AIzaSyA3l0KS7Uzd34B1cMB4DkgGyw2yiFkkhWo',
+    // Dossier Drive public ouvert par « Simulation d’exemple »
+    sampleDriveId: '1MM7QNyt_39qbZLpeIvcsNDT87uRBoTh7',
     googleClientId: '45950730270-jlpe535o31mfin6erpjtq0egll8ff7l0.apps.googleusercontent.com'
 };
