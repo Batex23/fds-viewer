@@ -852,3 +852,72 @@ body.st-present .st-dock-pick { display: none; }
 .st-load-meta { margin-top: 6px; font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .st-load-next { margin-top: 2px; font-size: 12px; color: var(--text-muted); }
 @media (prefers-reduced-motion: reduce) { .st-load-bar.is-indet i { animation: none; transform: none; } }
+
+/* ── Repères annotés ───────────────────────────────────────────────────── */
+.st-marks { position: absolute; inset: 0; pointer-events: none !important; overflow: hidden; }
+.st-marks-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none !important; }
+.st-mark-lead { stroke: #111; stroke-width: 2; }
+.st-mark-pt { fill: var(--sp-red); stroke: #fff; stroke-width: 2; }
+.st-mark {
+    position: absolute; left: 0; top: 0;
+    display: flex; align-items: center; gap: 7px;
+    max-width: 260px;
+    padding: 5px 11px 5px 6px;
+    background: #fff; color: #02216E;
+    border: 1.5px solid #111;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .28);
+    font-size: 15px; font-weight: 600; line-height: 1.2;
+    white-space: nowrap;
+    pointer-events: auto;
+    cursor: pointer;
+    user-select: none;
+    animation: st-mark-in .25s ease-out;
+}
+.st-mark[hidden] { display: none; }
+.st-mark-txt { overflow: hidden; text-overflow: ellipsis; }
+.st-mark-ico { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 6px; background: var(--sp-red); color: #fff; }
+.st-mark-ico svg { width: 16px; height: 16px; }
+.st-mark.is-edit { cursor: grab; }
+.st-mark.is-edit:active { cursor: grabbing; }
+.st-mark.is-current { outline: 3px solid color-mix(in srgb, var(--sp-red) 55%, transparent); outline-offset: 2px; }
+.st-mark.is-off { opacity: .45; }
+@keyframes st-mark-in { from { opacity: 0; } to { opacity: 1; } }
+body.st-placing #output-viewer-container, body.st-placing #output-viewer-container canvas { cursor: crosshair !important; }
+
+.st-mark-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 2px; }
+.st-mark-list li { display: flex; align-items: center; gap: 4px; }
+.st-mark-row {
+    flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+    padding: 7px 8px; border: 0; border-radius: 8px; background: none;
+    color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.st-mark-row:hover { background: var(--bg-tertiary); }
+.st-mark-row > span:last-child { min-width: 0; }
+.st-mark-row strong { display: block; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-mark-row small { display: block; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.st-mark-list .st-x { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--text-secondary); cursor: pointer; }
+.st-mark-list .st-x:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.st-mark-icons { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+.st-mark-icons button {
+    aspect-ratio: 1; display: grid; place-items: center;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg-primary); color: var(--text-secondary); cursor: pointer;
+}
+.st-mark-icons button svg { width: 18px; height: 18px; }
+.st-mark-icons button[aria-pressed="true"] { background: var(--sp-red); border-color: var(--sp-red); color: #fff; }
+.st-mark-times { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.st-mark-times .st-input { margin-top: 4px; }
+.st-mark-actions { display: flex; gap: 8px; margin-top: 10px; }
+.st-mark-actions .st-btn { flex: 1; }
+.st-btn-danger { color: var(--sp-red); }
+.st-marks-save {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 13px; color: var(--text-muted);
+}
+.st-marks-save .is-dirty { color: var(--sp-red); font-weight: 600; }
+.st-marks-save > div { display: flex; gap: 8px; }
+.st-marks-save .st-btn { flex: 1; }
+@media (prefers-reduced-motion: reduce) { .st-mark { animation: none; } }

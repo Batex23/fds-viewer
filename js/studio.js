@@ -39,6 +39,7 @@
         more: '<circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/>',
         folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
         file: '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/>',
+        pin: '<path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
         flame: '<path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3-1-5 1-8.5z"/>',
         x: '<path d="M6 6l12 12M18 6L6 18"/>',
         layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
@@ -119,6 +120,7 @@
         S.hrr = null; S.devc = null; S.devcSel = []; S.dockCharts = null;
         S.files = files;
         resetLayers();
+        loadMarks(files);
         L.part.available = files.some(f => /\.prt5$/i.test(f.name));
         const hrr = files.find(f => /_hrr\.csv$/i.test(f.name));
         if (hrr) {
@@ -322,6 +324,7 @@
                 <button type="button" class="st-tool" data-pop="cut" data-tip="Couper le bâtiment" aria-label="Couper le bâtiment" aria-expanded="false">${icon('cut')}</button>
                 <button type="button" class="st-tool" data-pop="building" data-tip="Affichage du bâtiment" aria-label="Affichage du bâtiment" aria-expanded="false">${icon('building')}</button>
                 <hr>
+                <button type="button" class="st-tool" data-pop="marks" data-tip="Repères" aria-label="Repères annotés" aria-expanded="false">${icon('pin')}</button>
                 <button type="button" class="st-tool" data-act="capture" data-tip="Capturer l’image" aria-label="Capturer l’image">${icon('camera')}</button>
             </nav>
             <div class="st-modes st-glass" role="toolbar" aria-label="Donnée affichée" hidden></div>
@@ -564,7 +567,7 @@
 
     function renderPop() {
         if (!pop) return;
-        const fn = { views: popViews, cut: popCut, building: popBuilding, settings: popSettings, slices: popSlices }[S.open];
+        const fn = { views: popViews, cut: popCut, building: popBuilding, settings: popSettings, slices: popSlices, marks: popMarks }[S.open];
         if (fn) fn(pop);
         const x = $('[data-close]', pop);
         if (x) x.addEventListener('click', closePop);
@@ -954,6 +957,7 @@
             cv.width = img.width; cv.height = img.height + band;
             const g = cv.getContext('2d');
             g.drawImage(img, 0, 0);
+            try { drawMarksOnCapture(g, img.width / Math.max(1, api().getViewer().renderer.domElement.getBoundingClientRect().width)); } catch (_) { /* image sans repères */ }
             g.fillStyle = '#02216E'; g.fillRect(0, img.height, cv.width, band);
             g.fillStyle = '#CE0019'; g.fillRect(0, img.height, cv.width, Math.max(3, band * 0.06));
             const title = ((ctl('model-title') || {}).textContent || S.simKey || 'Simulation FDS').trim();
@@ -1133,7 +1137,345 @@
             updatePlayerUI();
         }
         S.lastTick = now;
+        try { renderMarks(); } catch (e) { console.warn(e); }
         requestAnimationFrame(tick);
+    }
+
+    // ── Repères annotés (pointeur + étiquette, façon outil Texte de SketchUp) ──
+    // Enregistrés dans le dossier de la simulation (reperes-visionneuse.json),
+    // donc visibles par tous ceux qui ouvrent le lien.
+    const MARKS_FILE = 'reperes-visionneuse.json';
+    const MARK_ICONS = {
+        info: ['Information', '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/>'],
+        vo: ['Désenfumage', '<path d="M3 8.5h10.5a2.75 2.75 0 1 0-2.75-2.75"/><path d="M3 12.5h15a3 3 0 1 1-3 3"/><path d="M3 16.5h7"/>'],
+        porte: ['Porte', '<path d="M6 21V4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21"/><path d="M4 21h16"/><path d="M14.5 12.5v.1"/>'],
+        detect: ['Détection / alarme', '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>'],
+        eau: ['Extinction / eau', '<path d="M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11z"/>'],
+        feu: ['Feu', ICONS.flame],
+        secours: ['Intervention', '<path d="M4 15a8 8 0 0 1 16 0"/><path d="M2.5 15h19v2.5h-19z"/><path d="M12 7v4"/>'],
+        alerte: ['Attention', '<path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.4v.1"/>'],
+    };
+    const markIcon = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${(MARK_ICONS[k] || MARK_ICONS.info)[1]}</svg>`;
+    S.marks = []; S.marksDirty = false; S.marksFile = null; S.markEdit = null; S.placing = null;
+
+    const draftKey = () => 'sp33-marks:' + (S.simKey || 'local');
+    function saveDraft() {
+        try {
+            if (S.marksDirty) localStorage.setItem(draftKey(), JSON.stringify({ at: Date.now(), marks: S.marks }));
+            else localStorage.removeItem(draftKey());
+        } catch (_) { /* navigation privée */ }
+    }
+    function marksChanged() {
+        S.marksDirty = true; saveDraft();
+        drawTimeline();
+    }
+    async function loadMarks(files) {
+        S.marks = []; S.marksDirty = false; S.markEdit = null;
+        S.marksFile = files.find(f => f.name.toLowerCase() === MARKS_FILE) || null;
+        if (S.marksFile) {
+            try {
+                const j = JSON.parse(await S.marksFile.text());
+                S.marks = (j.marks || j.reperes || []).filter(m => m && Array.isArray(m.anchor));
+            } catch (e) { console.warn('[repères]', e); }
+        }
+        // Brouillon non enregistré (même navigateur) : on le reprend.
+        try {
+            const d = JSON.parse(localStorage.getItem(draftKey()) || 'null');
+            if (d && Array.isArray(d.marks)) { S.marks = d.marks; S.marksDirty = true; }
+        } catch (_) { /* rien */ }
+        drawTimeline();
+    }
+    function marksJson() {
+        return JSON.stringify({ format: 'visionneuse-fds-reperes', version: 1, simulation: S.simKey || '', marks: S.marks }, null, 2);
+    }
+    async function saveMarksDrive() {
+        try {
+            const r = await FDSRemote.saveDriveFile(MARKS_FILE, marksJson(), S.marksFile && S.marksFile.driveFileId);
+            if (r && r.id) {
+                if (!S.marksFile) S.marksFile = { name: MARKS_FILE };
+                S.marksFile.driveFileId = r.id;
+            }
+            S.marksDirty = false; saveDraft();
+            toast('Repères enregistrés dans le dossier Drive : toute personne qui ouvre le lien les verra.');
+        } catch (e) {
+            console.error(e);
+            toast('Enregistrement impossible : ' + e.message + ' Vous pouvez télécharger le fichier et le déposer dans le dossier.', 9000);
+        }
+        if (S.open === 'marks') renderPop();
+    }
+    function downloadMarks() {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([marksJson()], { type: 'application/json' }));
+        a.download = MARKS_FILE;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        S.marksDirty = false; saveDraft();
+        toast('Déposez « ' + MARKS_FILE + ' » dans le dossier de la simulation pour que les repères soient partagés.', 8000);
+        if (S.open === 'marks') renderPop();
+    }
+
+    // Repère FDS (x, y, z) ↔ scène (x, z, -y)
+    const toScene = p => new THREE.Vector3(p[0], p[2], -p[1]);
+    const toFds = v => [+v.x.toFixed(3), +(-v.z).toFixed(3), +v.y.toFixed(3)];
+
+    function markVisible(m) {
+        if (S.open === 'marks') return true;               // édition : tous visibles
+        const t0 = Number(m.t) || 0, d = Number(m.dur) > 0 ? Number(m.dur) : 15;
+        return S.time >= t0 - 1e-6 && S.time <= t0 + d;
+    }
+
+    let marksEl, marksSvg;
+    function ensureMarksLayer() {
+        if (marksEl || !root) return;
+        marksEl = document.createElement('div');
+        marksEl.className = 'st-marks';
+        marksEl.innerHTML = '<svg class="st-marks-svg" aria-hidden="true"></svg>';
+        root.insertBefore(marksEl, root.firstChild);
+        marksSvg = marksEl.firstChild;
+        marksEl.addEventListener('pointerdown', onMarkPointerDown);
+        marksEl.addEventListener('click', e => {
+            const lab = e.target.closest('.st-mark');
+            if (!lab || S.open === 'marks' || lab._dragged) return;
+            const m = S.marks.find(x => x.id === lab.dataset.id);
+            if (m) { S.playing = false; setTime(Number(m.t) || 0); }
+        });
+    }
+
+    /** Positionne pointeurs et étiquettes (appelé à chaque image). */
+    function renderMarks() {
+        if (!root) return;
+        ensureMarksLayer();
+        const v = api() && api().getViewer();
+        const studio = document.body.classList.contains('studio');
+        if (!v || !v.camera || !studio || !S.marks.length) {
+            if (marksEl._n) { marksEl.querySelectorAll('.st-mark').forEach(n => n.remove()); marksSvg.innerHTML = ''; marksEl._n = 0; }
+            return;
+        }
+        const cr = v.renderer.domElement.getBoundingClientRect();
+        const lr = marksEl.getBoundingClientRect();
+        const ox = cr.left - lr.left, oy = cr.top - lr.top;
+        const proj = p => {
+            const q = toScene(p).project(v.camera);
+            return { x: ox + (q.x + 1) / 2 * cr.width, y: oy + (1 - q.y) / 2 * cr.height, ok: q.z < 1 && q.z > -1 };
+        };
+        const editing = S.open === 'marks';
+        let svg = '';
+        const seen = new Set();
+        for (const m of S.marks) {
+            let el = marksEl.querySelector(`.st-mark[data-id="${CSS.escape(m.id)}"]`);
+            const vis = markVisible(m);
+            const a = proj(m.anchor), b = proj(m.label || m.anchor);
+            if (!vis || !a.ok || !b.ok) { if (el) el.hidden = true; continue; }
+            seen.add(m.id);
+            if (!el) {
+                el = document.createElement('div');
+                el.className = 'st-mark';
+                el.dataset.id = m.id;
+                marksEl.appendChild(el);
+            }
+            const sig = m.icon + '|' + m.title;
+            if (el._sig !== sig) {
+                el._sig = sig;
+                el.innerHTML = `<span class="st-mark-ico">${markIcon(m.icon)}</span><span class="st-mark-txt">${esc(m.title || 'Sans titre')}</span>`;
+            }
+            el.hidden = false;
+            el.classList.toggle('is-edit', editing);
+            el.classList.toggle('is-current', S.markEdit === m.id);
+            const inWin = S.time >= (Number(m.t) || 0) - 1e-6 && S.time <= (Number(m.t) || 0) + (Number(m.dur) > 0 ? Number(m.dur) : 15);
+            el.classList.toggle('is-off', editing && !inWin);
+            el.style.transform = `translate(${b.x.toFixed(1)}px, ${b.y.toFixed(1)}px) translate(-50%, -50%)`;
+            // Ligne de rappel : du point pointé jusqu'au bord de l'étiquette
+            const w = el.offsetWidth / 2, h = el.offsetHeight / 2;
+            const dx = a.x - b.x, dy = a.y - b.y;
+            const k = Math.min(Math.abs(dx) > 1e-3 ? w / Math.abs(dx) : Infinity, Math.abs(dy) > 1e-3 ? h / Math.abs(dy) : Infinity, 1);
+            const ex = b.x + dx * k, ey = b.y + dy * k;
+            const op = editing && !inWin ? 0.45 : 1;
+            svg += `<g opacity="${op}"><line x1="${ex.toFixed(1)}" y1="${ey.toFixed(1)}" x2="${a.x.toFixed(1)}" y2="${a.y.toFixed(1)}" class="st-mark-lead"/>` +
+                `<circle cx="${a.x.toFixed(1)}" cy="${a.y.toFixed(1)}" r="5" class="st-mark-pt"/></g>`;
+        }
+        marksSvg.innerHTML = svg;
+        marksEl.querySelectorAll('.st-mark').forEach(n => { if (!seen.has(n.dataset.id)) n.hidden = true; if (!S.marks.some(m => m.id === n.dataset.id)) n.remove(); });
+        marksEl._n = S.marks.length;
+    }
+
+    // Glisser l'étiquette (mode édition) : dans le plan face à la caméra.
+    function onMarkPointerDown(e) {
+        const lab = e.target.closest('.st-mark');
+        if (!lab) return;
+        lab._dragged = false;
+        if (S.open !== 'marks') return;
+        const m = S.marks.find(x => x.id === lab.dataset.id);
+        const v = api().getViewer();
+        if (!m || !v) return;
+        e.preventDefault(); e.stopPropagation();
+        if (S.markEdit !== m.id) { S.markEdit = m.id; renderPop(); }
+        lab.setPointerCapture(e.pointerId);
+        const start = toScene(m.label || m.anchor);
+        const normal = new THREE.Vector3();
+        v.camera.getWorldDirection(normal);
+        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, start);
+        const ray = new THREE.Raycaster();
+        const move = ev => {
+            const r = v.renderer.domElement.getBoundingClientRect();
+            ray.setFromCamera({ x: (ev.clientX - r.left) / r.width * 2 - 1, y: -((ev.clientY - r.top) / r.height) * 2 + 1 }, v.camera);
+            const hit = new THREE.Vector3();
+            if (ray.ray.intersectPlane(plane, hit)) { m.label = toFds(hit); lab._dragged = true; }
+        };
+        const up = () => {
+            lab.removeEventListener('pointermove', move);
+            lab.removeEventListener('pointerup', up);
+            lab.removeEventListener('pointercancel', up);
+            if (lab._dragged) marksChanged();
+        };
+        lab.addEventListener('pointermove', move);
+        lab.addEventListener('pointerup', up);
+        lab.addEventListener('pointercancel', up);
+    }
+
+    // Pose : clic sur le modèle → point pointé.
+    function pickModelPoint(clientX, clientY) {
+        const v = api().getViewer();
+        const r = v.renderer.domElement.getBoundingClientRect();
+        const ray = new THREE.Raycaster();
+        ray.setFromCamera({ x: (clientX - r.left) / r.width * 2 - 1, y: -((clientY - r.top) / r.height) * 2 + 1 }, v.camera);
+        const shown = o => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true; };
+        const hits = ray.intersectObjects(v.scene.children, true).filter(h =>
+            h.object.isMesh && !h.object._isSmokeVolume && !h.object._isParticleLayer && shown(h.object) &&
+            !(h.object.material && h.object.material.transparent && h.object.material.opacity < 0.3));
+        return hits.length ? hits[0].point : null;
+    }
+    function startPlacing(mode) {
+        S.placing = mode || 'new';
+        document.body.classList.add('st-placing');
+        toast(S.placing === 'new' ? 'Cliquez sur le modèle à l’endroit à pointer (Échap pour annuler).' : 'Cliquez sur le nouveau point à pointer.', 6000);
+    }
+    function stopPlacing() { S.placing = null; document.body.classList.remove('st-placing'); }
+    function wirePlacing() {
+        const host = $('#output-viewer-container') || document;
+        host.addEventListener('pointerdown', e => {
+            if (!S.placing || !document.body.classList.contains('studio')) return;
+            e.preventDefault(); e.stopPropagation();
+            const p = pickModelPoint(e.clientX, e.clientY);
+            if (!p) { toast('Cliquez sur un élément visible du modèle (mur, sol, objet).'); return; }
+            const v = api().getViewer();
+            if (S.placing === 'new') {
+                // Étiquette décalée vers le haut et la droite de l'écran.
+                const dist = v.camera.position.distanceTo(p);
+                const up = new THREE.Vector3(0, 1, 0).applyQuaternion(v.camera.quaternion).multiplyScalar(dist * 0.12);
+                const right = new THREE.Vector3(1, 0, 0).applyQuaternion(v.camera.quaternion).multiplyScalar(dist * 0.08);
+                const m = { id: 'm' + Date.now().toString(36), title: '', icon: 'info', t: +S.time.toFixed(1), dur: 15,
+                    anchor: toFds(p), label: toFds(p.clone().add(up).add(right)) };
+                S.marks.push(m);
+                S.markEdit = m.id;
+            } else {
+                const m = S.marks.find(x => x.id === S.markEdit);
+                if (m) {
+                    const delta = toScene(m.label).sub(toScene(m.anchor));
+                    m.anchor = toFds(p); m.label = toFds(p.clone().add(delta));
+                }
+            }
+            stopPlacing();
+            // Le clic de pose ne doit pas sélectionner d'objet dans la vue.
+            const swallow = ev => { ev.stopPropagation(); ev.preventDefault(); };
+            host.addEventListener('click', swallow, { capture: true, once: true });
+            host.addEventListener('pointerup', swallow, { capture: true, once: true });
+            host.addEventListener('mouseup', swallow, { capture: true, once: true });
+            marksChanged();
+            toast(S.markEdit && S.placing === null ? 'Repère placé : donnez-lui un titre.' : 'Repère déplacé.', 2500);
+            if (S.open !== 'marks') togglePop('marks', $('[data-pop="marks"]', rail)); else renderPop();
+            setTimeout(() => { const i = pop && $('[data-mtitle]', pop); if (i) i.focus(); }, 30);
+        }, true);
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.placing) { stopPlacing(); toast('Pose annulée.'); } });
+    }
+
+    function popMarks(el) {
+        const m = S.marks.find(x => x.id === S.markEdit);
+        const drive = window.FDSRemote && FDSRemote.isDriveSource && FDSRemote.isDriveSource();
+        const save = `<div class="st-marks-save">
+                <span class="${S.marksDirty ? 'is-dirty' : ''}">${S.marksDirty ? 'Modifications non enregistrées' : (S.marks.length ? 'Repères enregistrés' : '')}</span>
+                <div>${drive ? `<button type="button" class="st-btn" data-msave ${S.marksDirty ? '' : 'disabled'}>Enregistrer dans le Drive</button>` : ''}
+                <button type="button" class="st-btn st-btn-ghost" data-mdl ${S.marks.length ? '' : 'disabled'}>${drive ? 'Télécharger' : 'Télécharger le fichier'}</button></div>
+            </div>`;
+        if (m) {
+            el.innerHTML = popHead('Repère') + `
+                <div class="st-field"><div class="st-label">Titre</div>
+                    <input type="text" class="st-input" data-mtitle maxlength="60" placeholder="Ex. Activation de la VO" value="${esc(m.title || '')}"></div>
+                <div class="st-field"><div class="st-label">Pictogramme</div>
+                    <div class="st-mark-icons">${Object.entries(MARK_ICONS).map(([k, [l]]) =>
+                        `<button type="button" data-micon="${k}" aria-pressed="${m.icon === k}" title="${esc(l)}" aria-label="${esc(l)}">${markIcon(k)}</button>`).join('')}</div></div>
+                <div class="st-field st-mark-times">
+                    <label><span class="st-label">Apparaît à (s)</span><input type="number" class="st-input" data-mt min="0" step="0.1" value="${m.t}"></label>
+                    <label><span class="st-label">Pendant (s)</span><input type="number" class="st-input" data-md min="1" step="1" value="${m.dur || 15}"></label>
+                </div>
+                <div class="st-mark-actions">
+                    <button type="button" class="st-btn" data-mnow>Instant actuel (${fmtTime(S.time)})</button>
+                    <button type="button" class="st-btn" data-mrepoint>Repointer</button>
+                </div>
+                <p class="st-help">Faites glisser l’étiquette dans la vue pour la placer. La ligne relie l’étiquette au point pointé.</p>
+                <div class="st-mark-actions">
+                    <button type="button" class="st-btn st-btn-primary" data-mdone>Terminé</button>
+                    <button type="button" class="st-btn st-btn-danger" data-mdel>Supprimer</button>
+                </div>` + save;
+        } else {
+            const list = S.marks.slice().sort((a, b) => a.t - b.t);
+            el.innerHTML = popHead('Repères') + `
+                <p class="st-help">Pointez un endroit du modèle et légendez-le (ex. « Activation de la VO »). Le repère s’affiche pendant la lecture, à l’instant choisi.</p>
+                <button type="button" class="st-btn st-btn-primary st-btn-block" data-madd>${icon('plus', 'st-ico-sm')} Ajouter un repère</button>
+                <ul class="st-mark-list">${list.map(x => `<li>
+                    <button type="button" class="st-mark-row" data-mgo="${esc(x.id)}"><span class="st-mark-ico">${markIcon(x.icon)}</span>
+                        <span><strong>${esc(x.title || 'Sans titre')}</strong><small>à ${fmtTime(Number(x.t) || 0)} · ${Number(x.dur) || 15} s</small></span></button>
+                    <button type="button" class="st-x" data-medit="${esc(x.id)}" aria-label="Modifier">${icon('sliders', 'st-ico-sm')}</button>
+                </li>`).join('')}</ul>` + save;
+        }
+        on(el, 'input', e => {
+            const t = e.target;
+            if (!m) return;
+            if (t.hasAttribute('data-mtitle')) { m.title = t.value; marksChanged(); }
+            else if (t.hasAttribute('data-mt')) { const v = parseFloat(t.value); if (Number.isFinite(v)) { m.t = Math.max(0, v); marksChanged(); } }
+            else if (t.hasAttribute('data-md')) { const v = parseFloat(t.value); if (Number.isFinite(v) && v > 0) { m.dur = v; marksChanged(); } }
+        });
+        on(el, 'click', e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            if (b.hasAttribute('data-madd')) { closePop(); startPlacing('new'); }
+            else if (b.dataset.mgo) { const x = S.marks.find(y => y.id === b.dataset.mgo); if (x) { S.playing = false; setTime(Number(x.t) || 0); } }
+            else if (b.dataset.medit) { S.markEdit = b.dataset.medit; renderPop(); }
+            else if (b.dataset.micon && m) { m.icon = b.dataset.micon; marksChanged(); renderPop(); }
+            else if (b.hasAttribute('data-mnow') && m) { m.t = +S.time.toFixed(1); marksChanged(); renderPop(); }
+            else if (b.hasAttribute('data-mrepoint')) { startPlacing('repoint'); }
+            else if (b.hasAttribute('data-mdone')) { S.markEdit = null; renderPop(); }
+            else if (b.hasAttribute('data-mdel') && m) { S.marks = S.marks.filter(x => x !== m); S.markEdit = null; marksChanged(); renderPop(); }
+            else if (b.hasAttribute('data-msave')) saveMarksDrive();
+            else if (b.hasAttribute('data-mdl')) downloadMarks();
+        });
+    }
+
+    /** Ajoute les repères visibles sur l'image capturée. */
+    function drawMarksOnCapture(g, scale) {
+        const v = api().getViewer();
+        if (!v || !S.marks.length) return;
+        const cr = v.renderer.domElement.getBoundingClientRect();
+        for (const m of S.marks) {
+            const t0 = Number(m.t) || 0, d = Number(m.dur) > 0 ? Number(m.dur) : 15;
+            if (S.time < t0 - 1e-6 || S.time > t0 + d) continue;
+            const pa = toScene(m.anchor).project(v.camera), pb = toScene(m.label || m.anchor).project(v.camera);
+            if (pa.z > 1 || pb.z > 1) continue;
+            const ax = (pa.x + 1) / 2 * cr.width * scale, ay = (1 - pa.y) / 2 * cr.height * scale;
+            const bx = (pb.x + 1) / 2 * cr.width * scale, by = (1 - pb.y) / 2 * cr.height * scale;
+            const fs = 15 * scale;
+            g.font = `600 ${fs}px "Barlow Semi Condensed", sans-serif`;
+            const text = m.title || 'Sans titre';
+            const w = g.measureText(text).width + 22 * scale, h = fs * 1.9;
+            g.strokeStyle = '#111'; g.lineWidth = 2 * scale;
+            g.beginPath(); g.moveTo(bx, by); g.lineTo(ax, ay); g.stroke();
+            g.fillStyle = '#CE0019'; g.beginPath(); g.arc(ax, ay, 5 * scale, 0, Math.PI * 2); g.fill();
+            g.strokeStyle = '#fff'; g.lineWidth = 2 * scale; g.stroke();
+            g.fillStyle = '#fff'; g.strokeStyle = '#111'; g.lineWidth = 1.5 * scale;
+            roundRect(g, bx - w / 2, by - h / 2, w, h, 6 * scale); g.fill(); g.stroke();
+            g.fillStyle = '#02216E'; g.textAlign = 'center'; g.textBaseline = 'middle';
+            g.fillText(text, bx, by + scale);
+            g.textAlign = 'left';
+        }
     }
 
     // ── Barre de chargement ──────────────────────────────────────────────
@@ -1275,6 +1617,12 @@
             const near = smvGeo.eventTimes().filter(e => Math.abs(e.t - S.hover) <= tol);
             if (near.length) door = ' · ' + (near.length > 1 ? near.length + ' changements de porte' : (near[0].show ? 'fermeture' : 'ouverture') + (near[0].label && !/^OB_/.test(near[0].label) ? ' ' + near[0].label : ''));
         }
+        {
+            const [t0, t1] = span();
+            const tol = (t1 - t0) * 7 / Math.max(1, r.width);
+            const mk = S.marks.find(m => Math.abs((Number(m.t) || 0) - S.hover) <= tol);
+            if (mk) door += ' · ' + (mk.title || 'Repère');
+        }
         tip.textContent = fmtTime(S.hover) + (hrr != null ? ' · ' + fmtPower(hrr) : '') + door;
         tip.style.left = Math.max(40, Math.min(r.width - 40, clientX - r.left)) + 'px';
         tip.hidden = false;
@@ -1341,6 +1689,16 @@
                 const x = X(e.t);
                 g.fillStyle = e.show ? '#ff9f1c' : '#2ec4b6';
                 g.beginPath(); g.moveTo(x - 4, 2); g.lineTo(x + 4, 2); g.lineTo(x, 8); g.closePath(); g.fill();
+            }
+        }
+        // Repères annotés : losanges blancs
+        if (has && S.marks.length) {
+            for (const m of S.marks) {
+                const t = Number(m.t) || 0;
+                if (t < t0 || t > t1) continue;
+                const x = X(t);
+                g.fillStyle = '#ffffff'; g.strokeStyle = '#02216E'; g.lineWidth = 1.5;
+                g.beginPath(); g.moveTo(x, H - 13); g.lineTo(x + 5, H - 8); g.lineTo(x, H - 3); g.lineTo(x - 5, H - 8); g.closePath(); g.fill(); g.stroke();
             }
         }
         if (S.hover != null && !S.scrubbing) {
@@ -2048,6 +2406,7 @@
         if (!root) return;
         wireModes();
         wireKeyboard();
+        wirePlacing();
         wireDrop();
         const studio = lsGet(LS_UI) !== 'expert';
         document.body.classList.toggle('studio', studio);

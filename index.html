@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="css/style.css?v=20261125a">
     <link rel="stylesheet" href="css/remote.css?v=20261125f">
     <link rel="stylesheet" href="css/sdis33.css?v=20261125b">
-    <link rel="stylesheet" href="css/studio.css?v=20261126e">
+    <link rel="stylesheet" href="css/studio.css?v=20261126i">
 </head>
 <body>
     <!-- Top Bar -->
@@ -383,6 +383,7 @@
                         <li><strong>Plans de coupe</strong> : cochez autant de plans que nécessaire, comme dans Smokeview. Une même grandeur garde une seule échelle de couleurs, affichée à droite.</li>
                         <li><strong>Courbes</strong> : ouvre un panneau à côté de la 3D avec la puissance du feu et les capteurs (DEVC) choisis. Le curseur suit la lecture et les valeurs à l’instant courant s’affichent sous chaque courbe ; cliquez sur une courbe pour aller à cet instant.</li>
                         <li><strong>Portes et obstructions mobiles</strong> : la géométrie affichée est celle calculée par FDS (lue dans le .smv), murs déjà percés par les HOLE. Les obstructions qui apparaissent ou disparaissent pendant le calcul (OBST ou HOLE pilotés par DEVC_ID / CTRL_ID) suivent la lecture. Des repères sur la frise signalent chaque ouverture (turquoise) et fermeture (orange).</li>
+                        <li><strong>Repères</strong> (icône épingle à gauche) : « Ajouter un repère », puis cliquez sur le modèle à l’endroit à pointer et donnez un titre et un pictogramme (ex. « Activation de la VO »). Une étiquette reliée au point par une ligne apparaît pendant la lecture à l’instant choisi, pour la durée choisie ; faites-la glisser pour la placer. Les repères sont marqués d’un losange blanc sur la frise. « Enregistrer dans le Drive » les dépose dans le dossier de la simulation (fichier <code>reperes-visionneuse.json</code>) : toute personne qui ouvre le lien les voit. Pour un dossier local, « Télécharger le fichier » puis déposez-le dans le dossier.</li>
                         <li><strong>Chargement</strong> : une barre sous les couches indique ce qui se charge (fumée, parois, particules, plans), le fichier en cours et la progression. Vous pouvez manipuler la vue pendant ce temps.</li>
                         <li><strong>Réglages</strong> (bouton à droite des couches) : réglages de chaque couche active (densité de fumée, palette des parois, taille et classes de particules, palette des plans) ; « Tous les réglages… » donne accès à l’ensemble.</li>
                         <li><strong>Outils</strong> (à gauche) : Vues (dont vos vues enregistrées), Couper le bâtiment, Affichage du bâtiment, Capture d’image aux couleurs du SDIS 33.</li>
@@ -1416,9 +1417,9 @@
     <script src="js/output-page.js?v=20261126e"></script>
     <script src="js/app.js?v=20261125d"></script>
     <script src="js/config.js?v=20261126g"></script>
-    <script src="js/remote-loader.js?v=20261126e"></script>
+    <script src="js/remote-loader.js?v=20261126i"></script>
     <script src="js/particles.js?v=20261126e"></script>
     <script src="js/smv-geometry.js?v=20261126e"></script>
-    <script src="js/studio.js?v=20261126g"></script>
+    <script src="js/studio.js?v=20261126i"></script>
 </body>
 </html>

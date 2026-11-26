@@ -137,6 +137,55 @@
         });
     }
 
+    // ── Écriture dans le dossier Drive (repères) ─────────────────────────
+    // Droit d'écriture demandé seulement au moment d'enregistrer, par une
+    // fenêtre de consentement distincte. Les visiteurs n'en ont pas besoin.
+    const WRITE_SCOPE = 'https://www.googleapis.com/auth/drive';
+    const authW = { token: null, expires: 0, client: null };
+    function signInWrite() {
+        return new Promise((resolve, reject) => {
+            if (!hasOAuth()) { reject(new Error('Connexion Google non configurée pour ce site.')); return; }
+            if (authW.token && Date.now() < authW.expires) { resolve(authW.token); return; }
+            const go = () => {
+                try {
+                    if (!authW.client) {
+                        authW.client = window.google.accounts.oauth2.initTokenClient({ client_id: CFG.googleClientId, scope: WRITE_SCOPE, callback: () => {} });
+                    }
+                    authW.client.callback = r => {
+                        if (r && r.access_token) {
+                            authW.token = r.access_token;
+                            authW.expires = Date.now() + Math.max(60, (Number(r.expires_in) || 3600) - 60) * 1000;
+                            resolve(authW.token);
+                        } else reject(new Error('Autorisation d’écriture refusée' + (r && r.error ? ' (' + r.error + ')' : '') + '.'));
+                    };
+                    authW.client.error_callback = e => reject(new Error(e && e.type === 'popup_closed' ? 'Fenêtre de connexion fermée.'
+                        : e && e.type === 'popup_failed_to_open' ? 'Fenêtre de connexion bloquée : autorisez les pop-up pour ce site.' : 'Connexion Google impossible.'));
+                    authW.client.requestAccessToken({ prompt: authW.token ? '' : 'consent' });
+                } catch (e) { reject(e); }
+            };
+            if (window.google && window.google.accounts && window.google.accounts.oauth2) go();
+            else loadScript(GSI_SRC).then(go, reject);
+        });
+    }
+    /** Crée ou remplace un petit fichier texte dans le dossier Drive ouvert. */
+    async function saveDriveFile(name, content, existingId) {
+        if (!lastSource || lastSource.kind !== 'drive') throw new Error('Cette simulation n’a pas été ouverte depuis Google Drive.');
+        const token = await signInWrite();
+        const boundary = 'fdsv' + Math.random().toString(36).slice(2);
+        const meta = existingId ? { name } : { name, parents: [lastSource.id], mimeType: 'application/json' };
+        const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n` +
+            `--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
+        const url = 'https://www.googleapis.com/upload/drive/v3/files' + (existingId ? '/' + encodeURIComponent(existingId) : '') +
+            '?uploadType=multipart&supportsAllDrives=true&fields=id,name';
+        const res = await fetch(url, {
+            method: existingId ? 'PATCH' : 'POST',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'multipart/related; boundary=' + boundary },
+            body,
+        });
+        if (!res.ok) throw await httpError(res, name);
+        return res.json();
+    }
+
     // ── Explorateur Google Drive intégré ─────────────────────────────────
     // Parcourt Mon Drive, « Partagés avec moi » et les Drives partagés avec
     // le jeton de l'utilisateur (API Drive seule, sans le sélecteur Google).
@@ -493,7 +542,9 @@
                     } else if (!/^application\/vnd\.google-apps\./.test(f.mimeType)) {
                         const url = DRIVE_API + '/' + encodeURIComponent(f.id) +
                             '?alt=media&supportsAllDrives=true' + keyParam(key);
-                        files.push(new RemoteFile(f.name, url, Number(f.size) || 0));
+                        const rf = new RemoteFile(f.name, url, Number(f.size) || 0);
+                        rf.driveFileId = f.id;
+                        files.push(rf);
                     }
                 }
                 pageToken = page.nextPageToken || '';
@@ -775,7 +826,7 @@
         openRemote(src);
     }
 
-    window.FDSRemote = { downloads: () => ({ active: Array.from(progress.active.entries()).map(([name, e]) => ({ name, loaded: e.loaded, total: e.total })) }), open: openRemote, extractDriveId, shareLinkForDrive, openShare, pickFromDrive, signIn, hasOAuth, isSignedIn: tokenValid };
+    window.FDSRemote = { saveDriveFile, isDriveSource: () => !!(lastSource && lastSource.kind === 'drive'), downloads: () => ({ active: Array.from(progress.active.entries()).map(([name, e]) => ({ name, loaded: e.loaded, total: e.total })) }), open: openRemote, extractDriveId, shareLinkForDrive, openShare, pickFromDrive, signIn, hasOAuth, isSignedIn: tokenValid };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();
