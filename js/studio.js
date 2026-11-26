@@ -224,8 +224,12 @@
     // Vue épurée par défaut : on garde le bâtiment, on masque le maillage.
     function applyStudioDefaults(results) {
         if (!layerBox('grid')) return;
-        ['grid', 'meshes', 'devcs', 'inits', 'zones', 'hvacs'].forEach(l => setLayer(l, false));
-        ['obsts', 'vents', 'holes', 'geoms', 'fires'].forEach(l => setLayer(l, true));
+        // Par défaut : bâtiment et foyers seulement. Évents, HOLE et
+        // emplacements des &SLCF sont masqués (activables dans « Bâtiment »).
+        ['grid', 'meshes', 'devcs', 'inits', 'zones', 'hvacs', 'vents', 'holes'].forEach(l => setLayer(l, false));
+        ['obsts', 'geoms', 'fires'].forEach(l => setLayer(l, true));
+        const v = api() && api().getViewer();
+        if (v && v.slcfGroup) v.slcfGroup.visible = false;
         // Rendu « PyroSim » : murs pleins beiges, arêtes noires, fond ardoise,
         // fumée masquée par les murs.
         setCtl('output-scene-grayscale', false);
@@ -762,6 +766,7 @@
                 ${sw('fires', 'Foyers', isOn('fires'))}
                 ${sw('openings', 'Ouvertures et vents', isOn('vents') || isOn('holes'))}
                 ${sw('devcs', 'Capteurs', isOn('devcs'))}
+                <label class="st-switch"><span>Emplacement des plans (&amp;SLCF)</span><input type="checkbox" data-slcf ${(api().getViewer() || {}).slcfGroup && api().getViewer().slcfGroup.visible ? 'checked' : ''}></label>
                 ${sw('grid', 'Grille de calcul', isOn('grid'))}
                 ${sw('meshes', 'Limites des maillages', isOn('meshes'))}
             </div>
@@ -783,6 +788,7 @@
             } else if (btn.hasAttribute('data-all')) { closePop(); drawer('left', true); }
         });
         on(el, 'change', e => {
+            if (e.target.hasAttribute('data-slcf')) { const v = api().getViewer(); if (v && v.slcfGroup) v.slcfGroup.visible = e.target.checked; return; }
             if (e.target.hasAttribute('data-edges')) { S.look.edges = e.target.checked; saveLook(); applyLook(); return; }
             const k = e.target.dataset.sw, on = e.target.checked;
             if (k === 'openings') { setLayer('vents', on); setLayer('holes', on); }
