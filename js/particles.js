@@ -170,6 +170,130 @@
         });
     }
 
+
+    // ── Eau « liquide » (rendu écran façon simulation de fluide) ─────────
+    // Chaque goutte est projetée comme une tache gaussienne dont on cumule
+    // l'épaisseur dans une texture à demi-résolution (masquée par les murs).
+    // Cette épaisseur, lissée, est transformée en surface : normales tirées
+    // du gradient, éclairage, reflet et transparence. Les gouttes voisines
+    // se fondent en nappes et filets d'eau, sans maillage ni mémoire en plus
+    // (une seule texture de la taille de l'écran / 2).
+    class WaterFluid {
+        constructor(layer) {
+            this.layer = layer;
+            this.rt = null;
+            this.radius = 0.11;
+            this.splatMat = new THREE.ShaderMaterial({
+                uniforms: { radius: { value: this.radius }, viewH: { value: 500 } },
+                vertexShader: `
+                    #include <common>
+                    #include <clipping_planes_pars_vertex>
+                    uniform float radius; uniform float viewH;
+                    void main() {
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        gl_Position = projectionMatrix * mvPosition;
+                        gl_PointSize = clamp(radius * projectionMatrix[1][1] * viewH / max(0.05, -mvPosition.z), 2.0, 96.0);
+                        #include <clipping_planes_vertex>
+                    }`,
+                fragmentShader: `
+                    #include <common>
+                    #include <clipping_planes_pars_fragment>
+                    void main() {
+                        #include <clipping_planes_fragment>
+                        vec2 d = gl_PointCoord * 2.0 - 1.0;
+                        float r2 = dot(d, d);
+                        if (r2 > 1.0) discard;
+                        gl_FragColor = vec4(exp(-r2 * 3.0) * 0.3, 0.0, 0.0, 1.0);
+                    }`,
+                blending: THREE.AdditiveBlending, transparent: true, depthTest: true, depthWrite: false, clipping: true,
+            });
+            this.quadScene = new THREE.Scene();
+            this.quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+            this.compMat = new THREE.ShaderMaterial({
+                uniforms: {
+                    tT: { value: null }, texel: { value: new THREE.Vector2(1 / 512, 1 / 512) },
+                    shallow: { value: new THREE.Color('#cfeeff') }, deep: { value: new THREE.Color('#2f86c8') },
+                },
+                vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+                fragmentShader: `
+                    uniform sampler2D tT; uniform vec2 texel; uniform vec3 shallow; uniform vec3 deep;
+                    varying vec2 vUv;
+                    float T(vec2 o) { return texture2D(tT, vUv + o * texel).r; }
+                    float S(vec2 o) {   // épaisseur lissée (deux anneaux)
+                        float c = T(o) * 4.0;
+                        c += (T(o + vec2(2.0, 0.0)) + T(o - vec2(2.0, 0.0)) + T(o + vec2(0.0, 2.0)) + T(o - vec2(0.0, 2.0))) * 2.0;
+                        c += T(o + vec2(3.0, 3.0)) + T(o - vec2(3.0, 3.0)) + T(o + vec2(3.0, -3.0)) + T(o - vec2(-3.0, 3.0));
+                        return c / 16.0;
+                    }
+                    void main() {
+                        float t = S(vec2(0.0));
+                        if (t < 0.05) discard;
+                        float dx = S(vec2(3.0, 0.0)) - S(vec2(-3.0, 0.0));
+                        float dy = S(vec2(0.0, 3.0)) - S(vec2(0.0, -3.0));
+                        // Normales douces : surface d'eau lisse plutôt que granuleuse
+                        vec3 n = normalize(vec3(-dx * 2.2, -dy * 2.2, 1.0));
+                        vec3 L = normalize(vec3(-0.35, 0.65, 0.68));
+                        float diff = clamp(dot(n, L), 0.0, 1.0);
+                        float spec = pow(max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0), 70.0);
+                        float rim = pow(1.0 - n.z, 2.0);
+                        float a = smoothstep(0.05, 0.3, t);
+                        vec3 col = mix(shallow, deep, clamp(t * 0.35, 0.0, 1.0));
+                        col = col * (0.6 + 0.4 * diff) + rim * 0.35 + spec * 0.9;
+                        gl_FragColor = vec4(col, clamp(a * 0.78 + spec * 0.25, 0.0, 0.95));
+                    }`,
+                transparent: true, depthTest: false, depthWrite: false,
+            });
+            this.quadScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.compMat));
+            this.pass = (renderer, scene, camera, viewer) => this.render(renderer, camera, viewer);
+        }
+        setRadius(r) { this.radius = r; this.splatMat.uniforms.radius.value = r; }
+        _ensureRT(renderer) {
+            const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+            const w = Math.max(1, Math.floor(size.x / 2)), h = Math.max(1, Math.floor(size.y / 2));
+            if (!this.rt) {
+                this.rt = new THREE.WebGLRenderTarget(w, h, {
+                    type: THREE.HalfFloatType, format: THREE.RGBAFormat,
+                    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: true,
+                });
+            } else if (this.rt.width !== w || this.rt.height !== h) this.rt.setSize(w, h);
+            this.compMat.uniforms.texel.value.set(1 / w, 1 / h);
+            this.splatMat.uniforms.viewH.value = h;
+        }
+        render(renderer, camera, viewer) {
+            const L = this.layer;
+            if (!L.fluid || !L.group.visible || !L.group.parent) return;
+            const water = L.classes.filter(c => c.water && c.visible && c.count > 0);
+            if (!water.length) return;
+            this._ensureRT(renderer);
+            const autoClear = renderer.autoClear;
+            const clearColor = renderer.getClearColor(new THREE.Color()), clearAlpha = renderer.getClearAlpha();
+            renderer.autoClear = false;
+            renderer.setRenderTarget(this.rt);
+            renderer.setClearColor(0x000000, 0);
+            renderer.clear(true, true, false);
+            // 1. Profondeur des murs (pour masquer l'eau cachée), puis on efface la couleur.
+            if (viewer.obstGroup && viewer.obstGroup.visible) renderer.render(viewer.obstGroup, camera);
+            if (viewer.geomGroup && viewer.geomGroup.visible) renderer.render(viewer.geomGroup, camera);
+            renderer.clear(true, false, false);
+            // 2. Épaisseur d'eau cumulée
+            for (const c of water) {
+                if (!c._splat) { c._splat = new THREE.Points(c.points.geometry, this.splatMat); c._splat.frustumCulled = false; }
+                if (c._splat.geometry !== c.points.geometry) c._splat.geometry = c.points.geometry;
+                renderer.render(c._splat, camera);
+            }
+            // 3. Composition sur l'image
+            renderer.setRenderTarget(null);
+            this.compMat.uniforms.tT.value = this.rt.texture;
+            renderer.render(this.quadScene, this.quadCam);
+            renderer.setClearColor(clearColor, clearAlpha);
+            renderer.autoClear = autoClear;
+        }
+        dispose() {
+            if (this.rt) this.rt.dispose();
+            this.splatMat.dispose(); this.compMat.dispose();
+        }
+    }
+
     function nearestIndex(times, t) {
         let lo = 0, hi = times.length - 1;
         if (hi < 0) return -1;
@@ -193,6 +317,8 @@
             this.times = [];
             this.frameIndex = -1;
             this.pointSize = 4;
+            this.fluid = true;      // eau rendue comme un liquide
+            this.waterFluid = null;
         }
 
         get loaded() { return this.files.length > 0; }
@@ -291,12 +417,38 @@
         setPointSize(s) {
             this.pointSize = s;
             for (const c of this.classes) c.points.material.size = c.water ? s * 0.7 : s;
+            if (this.waterFluid) this.waterFluid.setRadius(0.11 * s / 5);
         }
         setClassVisible(index, v) {
             const c = this.classes[index];
             if (c) { c.visible = !!v; c.points.visible = !!v; }
         }
         setVisible(v) { this.group.visible = !!v; }
+
+        /** Active le rendu « liquide » de l'eau (passe écran du viewer). */
+        attachFluid(viewer) {
+            if (!viewer) return;
+            this.viewer = viewer;
+            if (!this.waterFluid) this.waterFluid = new WaterFluid(this);
+            viewer.postPasses = viewer.postPasses || [];
+            if (!viewer.postPasses.includes(this.waterFluid.pass)) viewer.postPasses.push(this.waterFluid.pass);
+            this._applyFluidVisibility();
+        }
+        setFluid(on) {
+            this.fluid = !!on;
+            this._applyFluidVisibility();
+            const i = this.frameIndex; this.frameIndex = -1; if (i >= 0) this.setFrame(i);
+        }
+        _applyFluidVisibility() {
+            for (const c of this.classes) {
+                if (!c.water) continue;
+                // En mode liquide, les points et traînées ne sont pas dessinés
+                // (ils servent seulement de source à la passe d'eau).
+                const drops = !(this.fluid && this.waterFluid);
+                c.points.material.visible = drops;
+                if (c.streaks) c.streaks.visible = drops;
+            }
+        }
 
         setFrame(i) {
             if (!this.files.length) return;
@@ -344,7 +496,7 @@
                 cls.count = totals[g];
                 attr.needsUpdate = true;
                 cls.points.geometry.setDrawRange(0, totals[g]);
-                if (cls.streaks) this._buildStreaks(cls, pending[g], arr, totals[g]);
+                if (cls.streaks && !(this.fluid && this.waterFluid)) this._buildStreaks(cls, pending[g], arr, totals[g]);
             });
         }
 
@@ -399,6 +551,11 @@
         }
 
         dispose() {
+            if (this.waterFluid) {
+                if (this.viewer && this.viewer.postPasses) this.viewer.postPasses = this.viewer.postPasses.filter(p => p !== this.waterFluid.pass);
+                this.waterFluid.dispose();
+                this.waterFluid = null;
+            }
             for (const c of this.classes) {
                 if (c.streaks) { c.streaks.geometry.dispose(); c.streaks.material.dispose(); }
                 c.points.geometry.dispose();

@@ -408,6 +408,13 @@ class FDSViewer {
             this.renderer.setRenderTarget(null);
             this.renderer.render(this.scene, this.camera);
         }
+        // Passes supplémentaires dessinées par-dessus (ex. eau « liquide »).
+        if (this.postPasses && this.postPasses.length) {
+            for (const pass of this.postPasses) {
+                try { pass(this.renderer, this.scene, this.camera, this); } catch (e) { console.warn('[post-pass]', e); }
+            }
+            this.renderer.setRenderTarget(null);
+        }
     }
 
     /** Lazy-create and resize the depth render target to match the canvas. */

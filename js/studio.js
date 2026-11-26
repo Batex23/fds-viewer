@@ -842,6 +842,7 @@
             const cls = L.part.layer.activeClasses();
             sections.push('<h3>Particules</h3><div class="st-field">' +
                 cls.map(c => `<label class="st-switch"><span><i class="st-swatch" style="background:${c.color}"></i>${esc(c.name)}</span><input type="checkbox" data-pclass="${L.part.layer.classes.indexOf(c)}" ${c.visible ? 'checked' : ''}></label>`).join('') +
+                (cls.some(c => c.water) ? `<label class="st-switch"><span>Eau : rendu liquide</span><input type="checkbox" data-wfluid ${L.part.layer.fluid ? 'checked' : ''}></label>` : '') +
                 `</div><div class="st-field"><div class="st-label">Taille des particules</div>
                 <input type="range" class="st-range" data-psize min="0.25" max="3" step="0.05" value="${S.partScale}">
                 <div class="st-range-ends"><span>Fines</span><span>Grosses</span></div></div>`);
@@ -880,6 +881,7 @@
         });
         on(el, 'change', async e => {
             const t = e.target;
+            if (t.hasAttribute('data-wfluid')) { S.waterFluid = t.checked; L.part.layer.setFluid(t.checked); return; }
             if (t.dataset.pclass != null) {
                 L.part.layer.setClassVisible(+t.dataset.pclass, t.checked);
                 renderLegends();
@@ -1860,6 +1862,8 @@
             // Taille en pixels à l'écran (comme Smokeview) : visible à toute distance.
             S.partBase = 5;
             layer.setPointSize(S.partBase * S.partScale);
+            layer.fluid = S.waterFluid !== false;
+            layer.attachFluid(api().getViewer());
             L.part.layer = layer;
             applyVisibility();
             applyTime(true);
