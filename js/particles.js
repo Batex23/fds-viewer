@@ -61,10 +61,10 @@
                 if (!nRec || nRec.len !== 4) { ok = false; break; }
                 const np = int(nRec);
                 const xyz = recs[r++];
-                r++; // tags
+                const tagRec = recs[r++];
                 if (classes[c].nq > 0) r++; // valeurs
                 if (!xyz || xyz.len < np * 12) { ok = false; break; }
-                perClass.push({ n: np, off: xyz.off });
+                perClass.push({ n: np, off: xyz.off, tagOff: tagRec && tagRec.len >= np * 4 ? tagRec.off : -1 });
             }
             if (!ok) break;
             frames.push({ time, perClass });
@@ -123,6 +123,51 @@
         g.fillRect(0, 0, 64, 64);
         const t = new THREE.CanvasTexture(c);
         return t;
+    }
+
+    function waterSprite() {
+        const c = document.createElement('canvas');
+        c.width = c.height = 64;
+        const g = c.getContext('2d');
+        const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+        grd.addColorStop(0, 'rgba(255,255,255,1)');
+        grd.addColorStop(0.3, 'rgba(255,255,255,0.75)');
+        grd.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = grd;
+        g.fillRect(0, 0, 64, 64);
+        return new THREE.CanvasTexture(c);
+    }
+
+    // Lignes à transparence dégradée (tête opaque → queue transparente),
+    // compatibles avec les plans de coupe du rendu (clipping).
+    function streakMaterial(color, opacity) {
+        return new THREE.ShaderMaterial({
+            uniforms: { color: { value: new THREE.Color(color) }, opacity: { value: opacity } },
+            vertexShader: `
+                #include <common>
+                #include <clipping_planes_pars_vertex>
+                attribute float a;
+                varying float vA;
+                void main() {
+                    vA = a;
+                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                    gl_Position = projectionMatrix * mvPosition;
+                    #include <clipping_planes_vertex>
+                }`,
+            fragmentShader: `
+                uniform vec3 color;
+                uniform float opacity;
+                varying float vA;
+                #include <common>
+                #include <clipping_planes_pars_fragment>
+                void main() {
+                    #include <clipping_planes_fragment>
+                    gl_FragColor = vec4(color, opacity * vA);
+                }`,
+            transparent: true,
+            depthWrite: false,
+            clipping: true,
+        });
     }
 
     function nearestIndex(times, t) {
@@ -194,12 +239,33 @@
                     color: new THREE.Color(color), size: this.pointSize, sizeAttenuation: false,
                     map: sprite, transparent: true, alphaTest: 0.25, depthWrite: false,
                 });
+                const water = color === WATER;
+                if (water) {
+                    // Gouttes d'eau : petit noyau clair + traînée dans le sens du
+                    // mouvement (comme un jet de sprinkleur filmé), au lieu de billes.
+                    mat.color = new THREE.Color('#d8eeff');
+                    mat.opacity = 0.9;
+                    mat.map = waterSprite();
+                    mat.alphaTest = 0.05;
+                }
                 const pts = new THREE.Points(geom, mat);
                 pts.frustumCulled = false;
                 pts.renderOrder = 7;
                 pts._isParticleLayer = true;
                 this.group.add(pts);
-                this.classes.push({ name: cls.name, color, visible: true, points: pts, count: 0, max: 0 });
+                let streaks = null;
+                if (water) {
+                    const sg = new THREE.BufferGeometry();
+                    sg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6 * 1024), 3));
+                    sg.setAttribute('a', new THREE.BufferAttribute(new Float32Array(2 * 1024), 1));
+                    sg.setDrawRange(0, 0);
+                    streaks = new THREE.LineSegments(sg, streakMaterial('#7cc4ff', 0.75));
+                    streaks.frustumCulled = false;
+                    streaks.renderOrder = 7;
+                    streaks._isParticleLayer = true;
+                    pts.add(streaks);
+                }
+                this.classes.push({ name: cls.name, color, visible: true, points: pts, streaks, water, count: 0, max: 0 });
             }
             // Reference time list: the longest file.
             this.times = parsed.reduce((a, p) => p.times.length > a.length ? p.times : a, []);
@@ -224,7 +290,7 @@
 
         setPointSize(s) {
             this.pointSize = s;
-            for (const c of this.classes) c.points.material.size = s;
+            for (const c of this.classes) c.points.material.size = c.water ? s * 0.7 : s;
         }
         setClassVisible(index, v) {
             const c = this.classes[index];
@@ -248,7 +314,12 @@
                     const g = p.globalIds[k];
                     if (!this.classes[g] || !pc.n) return;
                     totals[g] += pc.n;
-                    pending[g].push({ dv: p.dv, n: pc.n, off: pc.off });
+                    const seg = { dv: p.dv, n: pc.n, off: pc.off, tagOff: pc.tagOff, prev: null };
+                    if (this.classes[g].water && fi > 0) {
+                        const pf = p.frames[fi - 1] && p.frames[fi - 1].perClass[k];
+                        if (pf && pf.n && pf.tagOff >= 0 && pc.tagOff >= 0) seg.prev = pf;
+                    }
+                    pending[g].push(seg);
                 });
             }
             this.classes.forEach((cls, g) => {
@@ -273,11 +344,63 @@
                 cls.count = totals[g];
                 attr.needsUpdate = true;
                 cls.points.geometry.setDrawRange(0, totals[g]);
+                if (cls.streaks) this._buildStreaks(cls, pending[g], arr, totals[g]);
             });
+        }
+
+        /** Traînées : de la position précédente (même étiquette) vers la goutte. */
+        _buildStreaks(cls, segs, head, total) {
+            const g = cls.streaks.geometry;
+            let pos = g.getAttribute('position'), al = g.getAttribute('a');
+            if (pos.array.length < total * 6) {
+                const cap = Math.ceil(total * 1.5);
+                pos = new THREE.BufferAttribute(new Float32Array(cap * 6), 3); pos.setUsage(THREE.DynamicDrawUsage);
+                al = new THREE.BufferAttribute(new Float32Array(cap * 2), 1);
+                for (let i = 0; i < cap; i++) { al.array[2 * i] = 1; al.array[2 * i + 1] = 0; }
+                g.setAttribute('position', pos); g.setAttribute('a', al);
+                al.needsUpdate = true;
+            } else if (!al._init) {
+                for (let i = 0; i < al.array.length / 2; i++) { al.array[2 * i] = 1; al.array[2 * i + 1] = 0; }
+                al._init = true; al.needsUpdate = true;
+            }
+            const P = pos.array;
+            const MAXL = 0.45, MINL = 0.07;
+            let w = 0, h = 0;
+            for (const s of segs) {
+                let map = null;
+                if (s.prev) {
+                    map = new Map();
+                    const pn = s.prev.n;
+                    for (let j = 0; j < pn; j++) map.set(s.dv.getInt32(s.prev.tagOff + 4 * j, true), j);
+                }
+                for (let j = 0; j < s.n; j++, h += 3) {
+                    const hx = head[h], hy = head[h + 1], hz = head[h + 2];
+                    let dx = 0, dy = -MINL, dz = 0; // par défaut : chute verticale
+                    if (map) {
+                        const pj = map.get(s.dv.getInt32(s.tagOff + 4 * j, true));
+                        if (pj !== undefined) {
+                            const pn = s.prev.n, po = s.prev.off;
+                            const px = s.dv.getFloat32(po + 4 * pj, true);
+                            const py = s.dv.getFloat32(po + 4 * (pn + pj), true);
+                            const pz = s.dv.getFloat32(po + 4 * (2 * pn + pj), true);
+                            // repère scène (x, z, -y) ; traînée = 60 % du déplacement
+                            dx = (px - hx) * 0.6; dy = (pz - hy) * 0.6; dz = (-py - hz) * 0.6;
+                            const L = Math.hypot(dx, dy, dz);
+                            if (L > MAXL) { const k = MAXL / L; dx *= k; dy *= k; dz *= k; }
+                            else if (L < MINL) { if (L > 1e-6) { const k = MINL / L; dx *= k; dy *= k; dz *= k; } else { dx = 0; dy = MINL; dz = 0; } }
+                        }
+                    }
+                    P[w++] = hx; P[w++] = hy; P[w++] = hz;
+                    P[w++] = hx + dx; P[w++] = hy + dy; P[w++] = hz + dz;
+                }
+            }
+            pos.needsUpdate = true;
+            g.setDrawRange(0, total * 2);
         }
 
         dispose() {
             for (const c of this.classes) {
+                if (c.streaks) { c.streaks.geometry.dispose(); c.streaks.material.dispose(); }
                 c.points.geometry.dispose();
                 if (c.points.material.map) c.points.material.map.dispose();
                 c.points.material.dispose();

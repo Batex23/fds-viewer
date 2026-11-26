@@ -1743,8 +1743,14 @@
         const [t0, t1] = span();
         const playBtn = $('.st-play', player);
         playBtn.disabled = !has;
-        playBtn.innerHTML = icon(S.playing ? 'pause' : 'play');
-        playBtn.setAttribute('aria-label', S.playing ? 'Pause' : 'Lecture');
+        // Ne réécrire l'icône que si l'état change : la remplacer à chaque
+        // image supprimait la cible du clic pendant la lecture.
+        const st = S.playing ? 'pause' : 'play';
+        if (playBtn._st !== st) {
+            playBtn._st = st;
+            playBtn.innerHTML = icon(st);
+            playBtn.setAttribute('aria-label', S.playing ? 'Pause' : 'Lecture');
+        }
         const t = S.time;
         $('.st-clock strong', player).innerHTML = has ? fmtNum(t, t < 10 ? 1 : 0) + '<small> s</small>' : '—';
         $('.st-clock span', player).textContent = has ? 'sur ' + fmtTime(t1) : 'pas de résultats animés';
