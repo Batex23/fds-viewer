@@ -944,6 +944,9 @@ function resolveFDSColor(item, surfs, defaultColor) {
             }
             // SURF sans couleur : une teinte distincte par matériau, stable
             // d'une ouverture à l'autre (ordre de déclaration dans le .fds).
+            // Par défaut, comme FDS/Smokeview/PyroSim : couleur de surface
+            // par défaut (beige). Option : une teinte distincte par matériau.
+            if (!window.FDS_DISTINCT_SURF_COLORS) return FDS_DEFAULT_SURF_RGB.slice();
             if (!/^(INERT|OPEN|MIRROR|PERIODIC)$/i.test(surfName)) {
                 const idx = Object.keys(surfs).indexOf(surfName);
                 return SURF_PALETTE[(idx < 0 ? 0 : idx) % SURF_PALETTE.length].slice();
@@ -953,6 +956,9 @@ function resolveFDSColor(item, surfs, defaultColor) {
 
     return defaultColor || [200, 200, 200];
 }
+
+// Couleur de surface par défaut de FDS (Smokeview, PyroSim) : 1.0, 0.8, 0.4
+const FDS_DEFAULT_SURF_RGB = [255, 204, 102];
 
 // Teintes « matériaux » lisibles sur fond sombre, sans rouge vif (réservé au feu).
 const SURF_PALETTE = [

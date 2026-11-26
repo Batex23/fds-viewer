@@ -318,23 +318,22 @@ class FDSViewer {
     }
 
     _setupLights() {
-        // Ambient
-        const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+        // Éclairage neutre (pas de teinte bleutée) : chaque orientation de
+        // face a sa propre valeur, comme dans PyroSim — dessus clair,
+        // façades moyennes, dessous sombre.
+        const ambient = new THREE.AmbientLight(0xffffff, 0.42);
         this.scene.add(ambient);
 
-        // Directional light 1 (no shadow casting — see _init for rationale)
-        const dir1 = new THREE.DirectionalLight(0xffffff, 0.6);
-        dir1.position.set(10, 20, 10);
+        const dir1 = new THREE.DirectionalLight(0xffffff, 0.62);
+        dir1.position.set(6, 20, 11);
         dir1.castShadow = false;
         this.scene.add(dir1);
 
-        // Directional light 2
-        const dir2 = new THREE.DirectionalLight(0xffffff, 0.3);
-        dir2.position.set(-10, 10, -10);
+        const dir2 = new THREE.DirectionalLight(0xffffff, 0.22);
+        dir2.position.set(-12, 6, -8);
         this.scene.add(dir2);
 
-        // Hemisphere
-        const hemi = new THREE.HemisphereLight(0x87ceeb, 0x362d1b, 0.3);
+        const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 0.12);
         this.scene.add(hemi);
     }
 
@@ -823,7 +822,7 @@ class FDSViewer {
             if (!obst.xb) continue;
 
             const { position, size, rawSize } = this._xbToBox(obst.xb);
-            const rgb = resolveFDSColor(obst, this.fdsData.surfs, [180, 180, 180]);
+            const rgb = resolveFDSColor(obst, this.fdsData.surfs, [255, 204, 102]);
             const color = new THREE.Color(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255);
 
             // Detect thin (planar) obstructions from the raw (unclamped) extents
@@ -843,6 +842,9 @@ class FDSViewer {
             const geometry = new THREE.BoxGeometry(sx, sy, sz);
             const material = new THREE.MeshPhongMaterial({
                 color: color,
+                // Rendu mat façon PyroSim/Smokeview : pas de reflet spéculaire.
+                specular: 0x000000,
+                shininess: 0,
                 transparent: isTransparent,
                 opacity: opacity,
                 // FrontSide on opaque kills the worst Z-fight: two adjacent OBSTs
@@ -886,7 +888,17 @@ class FDSViewer {
             // Wireframe overlay (toggle via the "OBST edges" checkbox in the
             // sidebar — useful for authoring, hides the seams between OBSTs
             // that make up a single visual wall).
-            const edgeMat = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1 });
+            const edgeMat = this._obstEdgeMaterial || (this._obstEdgeMaterial = (() => {
+                const m = new THREE.LineBasicMaterial({ color: 0x111111 });
+                // Équivalent d'un polygonOffset pour les lignes : on avance
+                // légèrement les arêtes en profondeur pour qu'elles passent
+                // devant les faces (qui sont elles-mêmes avancées).
+                m.onBeforeCompile = sh => {
+                    sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>',
+                        '#include <project_vertex>\n\tmvPosition.xyz *= 0.997;\n\tgl_Position = projectionMatrix * mvPosition;');
+                };
+                return m;
+            })());
             const edgeGeo = new THREE.EdgesGeometry(geometry);
             const wireframe = new THREE.LineSegments(edgeGeo, edgeMat);
             wireframe.visible = this.showObstEdges !== false;
@@ -1213,7 +1225,7 @@ class FDSViewer {
 
         for (let i = 0; i < this.fdsData.geoms.length; i++) {
             const geom = this.fdsData.geoms[i];
-            const rgb = resolveFDSColor(geom, this.fdsData.surfs, [100, 200, 255]);
+            const rgb = resolveFDSColor(geom, this.fdsData.surfs, [255, 204, 102]);
             const color = new THREE.Color(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255);
 
             if (geom.sphere_origin && geom.sphere_radius) {
@@ -2092,6 +2104,24 @@ class FDSViewer {
      * the seams between adjacent OBSTs that compose a wall don't read as
      * visible lines in walk mode.
      */
+    /** Recalcule la couleur des OBST/GEOM (après changement de règle de couleurs). */
+    refreshSurfaceColors() {
+        if (!this.fdsData) return;
+        const surfs = this.fdsData.surfs;
+        const apply = (mesh, item) => {
+            const m = mesh.material;
+            if (!m || !m.color || !item) return;
+            const rgb = resolveFDSColor(item, surfs, [255, 204, 102]);
+            const hex = (rgb[0] << 16) | (rgb[1] << 8) | rgb[2];
+            if (m._origColor !== undefined) m._origColor = hex;
+            if (!this._grayscale) m.color.setHex(hex);
+        };
+        this.obstGroup.children.forEach(c => {
+            if (c.userData && c.userData.type === 'OBST') apply(c, this.fdsData.obsts[c.userData.index]);
+        });
+        if (this._grayscale) this.setGrayscale(true);
+    }
+
     setShowObstEdges(show) {
         this.showObstEdges = !!show;
         this.obstGroup.traverse(child => {

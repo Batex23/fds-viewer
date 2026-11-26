@@ -225,10 +225,39 @@
         if (!layerBox('grid')) return;
         ['grid', 'meshes', 'devcs', 'inits', 'zones', 'hvacs'].forEach(l => setLayer(l, false));
         ['obsts', 'vents', 'holes', 'geoms', 'fires'].forEach(l => setLayer(l, true));
-        // Couleurs des matériaux visibles par défaut (une teinte par SURF).
+        // Rendu « PyroSim » : murs pleins beiges, arêtes noires, fond ardoise,
+        // fumée masquée par les murs.
         setCtl('output-scene-grayscale', false);
+        setCtl('output-smoke-render', 'depth');
+        applyLook();
         S.defaultsApplied = true;
     }
+
+    // ── Aspect du bâtiment ────────────────────────────────────────────────
+    const BG = { slate: '#535a74', light: '#e8e8e8', dark: '#0d1736' };
+    const LOOK_KEY = 'sp33-look';
+    function loadLook() {
+        const d = { colors: 'fds', edges: true, bg: 'slate' };
+        try { return Object.assign(d, JSON.parse(localStorage.getItem(LOOK_KEY) || '{}')); } catch (_) { return d; }
+    }
+    S.look = loadLook();
+    window.FDS_DISTINCT_SURF_COLORS = S.look.colors === 'distinct';
+    function saveLook() { try { localStorage.setItem(LOOK_KEY, JSON.stringify(S.look)); } catch (_) { /* navigation privée */ } }
+    function applyLook() {
+        const v = api() && api().getViewer();
+        window.FDS_DISTINCT_SURF_COLORS = S.look.colors === 'distinct';
+        if (!v) return;
+        setCtl('output-scene-grayscale', S.look.colors === 'gray');
+        if (v.refreshSurfaceColors) v.refreshSurfaceColors();
+        if (v.setShowObstEdges) v.setShowObstEdges(!!S.look.edges);
+        if (document.body.classList.contains('studio')) v.setBackground(BG[S.look.bg] || BG.slate);
+    }
+    // Le changement de thème clair/sombre ne doit pas écraser le fond choisi.
+    const _setSceneBg = window.outputPageSetSceneBackground;
+    window.outputPageSetSceneBackground = function (bg) {
+        if (_setSceneBg) _setSceneBg(bg);
+        if (document.body.classList.contains('studio')) applyLook();
+    };
 
     // ── Construction de l'interface ───────────────────────────────────────
     let root, rail, modes, player, timeline, canvas, tip, emptyEl, toastEl, pop, menuEl;
@@ -418,6 +447,13 @@
     function setStudio(on, page) {
         S.playing = false;
         document.body.classList.toggle('studio', on);
+        try {
+            const v = api() && api().getViewer();
+            if (v) {
+                if (on) applyLook();
+                else v.setBackground(document.documentElement.getAttribute('data-theme') === 'light' ? BG.light : BG.dark);
+            }
+        } catch (_) { /* pas encore de vue 3D */ }
         if (!on && legendEl) legendEl.hidden = true;
         lsSet(LS_UI, on ? 'studio' : 'expert');
         closePop(); closeMenu(); drawer('left', false); drawer('right', false);
@@ -656,6 +692,8 @@
         const wall = !obstOn ? 'hidden' : opacity < 0.6 ? 'ghost' : 'solid';
         const sw = (key, label, on) => `<label class="st-switch"><span>${label}</span><input type="checkbox" data-sw="${key}" ${on ? 'checked' : ''}></label>`;
         const isOn = l => !!(layerBox(l) && layerBox(l).checked);
+        const seg = (key, opts) => `<div class="st-seg" data-look="${key}">${opts.map(([v, l]) =>
+            `<button type="button" data-v="${v}" aria-pressed="${S.look[key] === v}">${l}</button>`).join('')}</div>`;
         el.innerHTML = popHead('Bâtiment') + `
             <div class="st-field">
                 <div class="st-label">Murs et obstacles</div>
@@ -666,7 +704,16 @@
                 </div>
             </div>
             <div class="st-field">
-                ${sw('color', 'Couleurs des matériaux', !(ctl('output-scene-grayscale') || {}).checked)}
+                <div class="st-label">Couleurs</div>
+                ${seg('colors', [['fds', 'Comme PyroSim'], ['distinct', 'Par matériau'], ['gray', 'Gris']])}
+                <div class="st-hint">« Comme PyroSim » reprend les couleurs du .fds (COLOR, RGB) et le beige par défaut de FDS.</div>
+            </div>
+            <div class="st-field">
+                <div class="st-label">Fond</div>
+                ${seg('bg', [['slate', 'Ardoise'], ['light', 'Clair'], ['dark', 'Nuit']])}
+            </div>
+            <div class="st-field">
+                <label class="st-switch"><span>Arêtes des obstacles</span><input type="checkbox" data-edges ${S.look.edges ? 'checked' : ''}></label>
                 ${sw('fires', 'Foyers', isOn('fires'))}
                 ${sw('openings', 'Ouvertures et vents', isOn('vents') || isOn('holes'))}
                 ${sw('devcs', 'Capteurs', isOn('devcs'))}
@@ -677,7 +724,12 @@
         on(el, 'click', e => {
             const btn = e.target.closest('button');
             if (!btn) return;
-            if (btn.closest('[data-wall]')) {
+            const look = btn.closest('[data-look]');
+            if (look) {
+                S.look[look.dataset.look] = btn.dataset.v;
+                saveLook(); applyLook();
+                $$('button', look).forEach(x => x.setAttribute('aria-pressed', String(x === btn)));
+            } else if (btn.closest('[data-wall]')) {
                 const v = btn.dataset.v;
                 setLayer('obsts', v !== 'hidden');
                 setLayer('geoms', v !== 'hidden');
@@ -686,9 +738,9 @@
             } else if (btn.hasAttribute('data-all')) { closePop(); drawer('left', true); }
         });
         on(el, 'change', e => {
+            if (e.target.hasAttribute('data-edges')) { S.look.edges = e.target.checked; saveLook(); applyLook(); return; }
             const k = e.target.dataset.sw, on = e.target.checked;
-            if (k === 'color') setCtl('output-scene-grayscale', !on);
-            else if (k === 'openings') { setLayer('vents', on); setLayer('holes', on); }
+            if (k === 'openings') { setLayer('vents', on); setLayer('holes', on); }
             else setLayer(k, on);
         });
     }
