@@ -471,6 +471,30 @@
             this._url = url;
             this._buf = null;
         }
+        /** Lecture en flux (gros fichiers) : renvoie un lecteur de morceaux,
+         *  avec la même barre de progression que les téléchargements. */
+        async stream() {
+            const res = await fetch(this._url, { headers: authHeaders() });
+            if (!res.ok) throw await httpError(res, this.name);
+            const reader = res.body.getReader();
+            const entry = { loaded: 0, total: this.size || Number(res.headers.get('content-length')) || 0 };
+            const name = this.name;
+            progress.active.set(name, entry);
+            progress.update();
+            let last = 0;
+            return {
+                async read() {
+                    try {
+                        const r = await reader.read();
+                        if (r.done) { progress.active.delete(name); progress.doneBytes += entry.loaded; progress.update(); return r; }
+                        entry.loaded += r.value.byteLength;
+                        const now = performance.now();
+                        if (now - last > 150) { last = now; progress.update(); }
+                        return r;
+                    } catch (e) { progress.active.delete(name); progress.update(); throw e; }
+                },
+            };
+        }
         arrayBuffer() {
             if (!this._buf) {
                 this._buf = fetchWithProgress(this._url, this.name, this.size);

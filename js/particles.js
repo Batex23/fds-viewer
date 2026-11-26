@@ -11,65 +11,99 @@
 (function (global) {
     'use strict';
 
-    function readRecords(buffer) {
-        const dv = new DataView(buffer);
-        const recs = [];
-        let off = 0;
-        const n = buffer.byteLength;
-        while (off + 4 <= n) {
-            const len = dv.getInt32(off, true);
-            if (len < 0 || off + 8 + len > n) break;
-            const end = dv.getInt32(off + 4 + len, true);
-            if (end !== len) break;
-            recs.push({ off: off + 4, len });
-            off += 8 + len;
+    // ── Lecture en flux (fichiers .prt5 volumineux) ──────────────────────
+    // Les gros calculs produisent des .prt5 de plusieurs centaines de Mo :
+    // on les lit morceau par morceau, sans jamais garder le fichier entier,
+    // et on ne conserve qu'une particule sur k (choisie par son étiquette,
+    // donc toujours les mêmes gouttes d'un pas de temps à l'autre). Seules
+    // les positions (repère de la scène) et les étiquettes sont gardées.
+    const PRT5_BUDGET = 60e6;   // octets de fichier « utiles » visés par fichier
+
+    async function* fortranRecords(reader) {
+        let buf = new Uint8Array(0);
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (!value || !value.length) continue;
+            const nb = new Uint8Array(buf.length + value.length);
+            nb.set(buf, 0); nb.set(value, buf.length);
+            buf = nb;
+            const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+            let off = 0;
+            while (buf.length - off >= 4) {
+                const len = dv.getInt32(off, true);
+                if (len < 0) return;
+                if (buf.length - off < len + 8) break;
+                yield buf.slice(off + 4, off + 4 + len);   // copie alignée
+                off += len + 8;
+            }
+            if (off) buf = buf.slice(off);
         }
-        return { dv, recs, truncated: off < n };
     }
 
-    function parsePrt5(buffer, fileName) {
-        const { dv, recs } = readRecords(buffer);
-        let r = 0;
-        const int = (rec, k) => dv.getInt32(rec.off + 4 * (k || 0), true);
-        if (recs.length < 3) throw new Error('Fichier particules vide : ' + fileName);
-        r++; // ONE
-        const version = int(recs[r++]);
-        const nClasses = int(recs[r++]);
+    async function openReader(file) {
+        if (file.stream) {
+            const st = await file.stream();
+            return st.getReader ? st.getReader() : st;
+        }
+        const buf = await file.arrayBuffer();
+        let sent = false;
+        return { read: async () => sent ? { done: true } : (sent = true, { done: false, value: new Uint8Array(buf) }) };
+    }
+
+    async function parsePrt5Stream(file, fileName) {
+        const stride = Math.max(1, Math.ceil((file.size || 0) / PRT5_BUDGET));
+        const it = fortranRecords(await openReader(file));
+        const next = async () => { const r = await it.next(); return r.done ? null : r.value; };
+        const i32 = rec => new DataView(rec.buffer).getInt32(0, true);
+        let rec = await next(); if (!rec) throw new Error('Fichier particules vide : ' + fileName);   // ONE
+        rec = await next(); const version = rec ? i32(rec) : 0;
+        rec = await next(); const nClasses = rec ? i32(rec) : -1;
         if (!(nClasses >= 0 && nClasses < 1000)) throw new Error('En-tête .prt5 illisible : ' + fileName);
         const classes = [];
         for (let c = 0; c < nClasses; c++) {
-            const nq = int(recs[r++]);
+            const nq = i32(await next());
             const names = [];
             for (let q = 0; q < nq; q++) {
-                const nameRec = recs[r++]; r++; // unités ignorées
-                let s = '';
-                for (let i = 0; i < nameRec.len; i++) s += String.fromCharCode(dv.getUint8(nameRec.off + i));
-                names.push(s.trim());
+                const nm = await next(); await next();
+                names.push(String.fromCharCode(...nm).trim());
             }
             classes.push({ nq, names });
         }
         const frames = [];
-        while (r < recs.length) {
-            const tRec = recs[r];
-            if (tRec.len !== 4) break;
-            const time = dv.getFloat32(tRec.off, true);
-            r++;
+        for (;;) {
+            const tRec = await next();
+            if (!tRec || tRec.length !== 4) break;
+            const time = new DataView(tRec.buffer).getFloat32(0, true);
             const perClass = [];
             let ok = true;
             for (let c = 0; c < nClasses; c++) {
-                const nRec = recs[r++];
-                if (!nRec || nRec.len !== 4) { ok = false; break; }
-                const np = int(nRec);
-                const xyz = recs[r++];
-                const tagRec = recs[r++];
-                if (classes[c].nq > 0) r++; // valeurs
-                if (!xyz || xyz.len < np * 12) { ok = false; break; }
-                perClass.push({ n: np, off: xyz.off, tagOff: tagRec && tagRec.len >= np * 4 ? tagRec.off : -1 });
+                const nRec = await next();
+                if (!nRec || nRec.length !== 4) { ok = false; break; }
+                const np = i32(nRec);
+                const xyzRec = await next();
+                const tagRec = await next();
+                if (classes[c].nq > 0) await next();
+                if (!xyzRec || xyzRec.length < np * 12) { ok = false; break; }
+                const xyz = new Float32Array(xyzRec.buffer, 0, np * 3);
+                const tags = tagRec && tagRec.length >= np * 4 ? new Int32Array(tagRec.buffer, 0, np) : null;
+                let keep = np;
+                if (stride > 1 && tags) { keep = 0; for (let j = 0; j < np; j++) if (tags[j] % stride === 0) keep++; }
+                else if (stride > 1) keep = Math.ceil(np / stride);
+                const pos = new Float32Array(keep * 3), tag = new Int32Array(keep);
+                let w = 0;
+                for (let j = 0; j < np; j++) {
+                    if (stride > 1 && (tags ? tags[j] % stride !== 0 : j % stride !== 0)) continue;
+                    pos[3 * w] = xyz[j]; pos[3 * w + 1] = xyz[2 * np + j]; pos[3 * w + 2] = -xyz[np + j];
+                    tag[w] = tags ? tags[j] : j;
+                    w++;
+                }
+                perClass.push({ n: w, pos, tag });
             }
             if (!ok) break;
             frames.push({ time, perClass });
         }
-        return { fileName, version, classes, frames, dv };
+        return { fileName, version, classes, frames, stride };
     }
 
     // CLASS_OF_PARTICLES blocks in the .smv: name, then "r g b", then nq and
@@ -182,7 +216,7 @@
         constructor(layer) {
             this.layer = layer;
             this.rt = null;
-            this.radius = 0.11;
+            this.radius = 0.06;
             this.splatMat = new THREE.ShaderMaterial({
                 uniforms: { radius: { value: this.radius }, viewH: { value: 500 } },
                 vertexShader: `
@@ -203,7 +237,7 @@
                         vec2 d = gl_PointCoord * 2.0 - 1.0;
                         float r2 = dot(d, d);
                         if (r2 > 1.0) discard;
-                        gl_FragColor = vec4(exp(-r2 * 3.0) * 0.3, 0.0, 0.0, 1.0);
+                        gl_FragColor = vec4(exp(-r2 * 3.0) * 0.22, 0.0, 0.0, 1.0);
                     }`,
                 blending: THREE.AdditiveBlending, transparent: true, depthTest: true, depthWrite: false, clipping: true,
             });
@@ -212,7 +246,7 @@
             this.compMat = new THREE.ShaderMaterial({
                 uniforms: {
                     tT: { value: null }, texel: { value: new THREE.Vector2(1 / 512, 1 / 512) },
-                    shallow: { value: new THREE.Color('#cfeeff') }, deep: { value: new THREE.Color('#2f86c8') },
+                    shallow: { value: new THREE.Color('#d3e5f3') }, deep: { value: new THREE.Color('#4a84b3') },
                 },
                 vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
                 fragmentShader: `
@@ -227,19 +261,20 @@
                     }
                     void main() {
                         float t = S(vec2(0.0));
-                        if (t < 0.05) discard;
+                        if (t < 0.03) discard;
                         float dx = S(vec2(3.0, 0.0)) - S(vec2(-3.0, 0.0));
                         float dy = S(vec2(0.0, 3.0)) - S(vec2(0.0, -3.0));
                         // Normales douces : surface d'eau lisse plutôt que granuleuse
-                        vec3 n = normalize(vec3(-dx * 2.2, -dy * 2.2, 1.0));
+                        vec3 n = normalize(vec3(-dx * 1.4, -dy * 1.4, 1.0));
                         vec3 L = normalize(vec3(-0.35, 0.65, 0.68));
                         float diff = clamp(dot(n, L), 0.0, 1.0);
-                        float spec = pow(max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0), 70.0);
-                        float rim = pow(1.0 - n.z, 2.0);
-                        float a = smoothstep(0.05, 0.3, t);
-                        vec3 col = mix(shallow, deep, clamp(t * 0.35, 0.0, 1.0));
-                        col = col * (0.6 + 0.4 * diff) + rim * 0.35 + spec * 0.9;
-                        gl_FragColor = vec4(col, clamp(a * 0.78 + spec * 0.25, 0.0, 0.95));
+                        float spec = pow(max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0), 140.0);
+                        float rim = pow(1.0 - n.z, 3.0);
+                        // Zones peu denses : voile de pulvérisation ; zones denses : nappe d'eau.
+                        float a = smoothstep(0.03, 0.7, t);
+                        vec3 col = mix(shallow, deep, clamp(t * 0.25, 0.0, 1.0));
+                        col = col * (0.75 + 0.25 * diff) + rim * 0.08 + spec * 0.22;
+                        gl_FragColor = vec4(col, clamp(a * 0.6 + spec * 0.08, 0.0, 0.7));
                     }`,
                 transparent: true, depthTest: false, depthWrite: false,
             });
@@ -336,9 +371,8 @@
             for (let i = 0; i < entries.length; i++) {
                 const e = entries[i];
                 if (onProgress) onProgress(i, entries.length, e.fileName);
-                const buf = await byName.get(e.fileName.toLowerCase()).arrayBuffer();
                 try {
-                    const p = parsePrt5(buf, e.fileName);
+                    const p = await parsePrt5Stream(byName.get(e.fileName.toLowerCase()), e.fileName);
                     if (!p.frames.length) continue;
                     // Map the file's local class order to global class ids.
                     p.globalIds = p.classes.map((_, k) => (e.classIds[k] || k + 1) - 1);
@@ -351,6 +385,8 @@
             }
             if (!parsed.length) return false;
             this.files = parsed;
+            // Fichiers allégés (1 particule sur k) : taches d'eau un peu plus grandes.
+            this.stride = Math.max(1, ...parsed.map(p => p.stride || 1));
             // Global class list.
             const nGlobal = Math.max(smv.classes.length, ...parsed.map(p => Math.max(...p.globalIds, -1) + 1));
             const sprite = dropSprite();
@@ -417,7 +453,7 @@
         setPointSize(s) {
             this.pointSize = s;
             for (const c of this.classes) c.points.material.size = c.water ? s * 0.7 : s;
-            if (this.waterFluid) this.waterFluid.setRadius(0.11 * s / 5);
+            if (this.waterFluid) this.waterFluid.setRadius(0.06 * s / 5 * Math.min(2.2, Math.cbrt(this.stride || 1)));
         }
         setClassVisible(index, v) {
             const c = this.classes[index];
@@ -429,7 +465,7 @@
         attachFluid(viewer) {
             if (!viewer) return;
             this.viewer = viewer;
-            if (!this.waterFluid) this.waterFluid = new WaterFluid(this);
+            if (!this.waterFluid) { this.waterFluid = new WaterFluid(this); this.setPointSize(this.pointSize); }
             viewer.postPasses = viewer.postPasses || [];
             if (!viewer.postPasses.includes(this.waterFluid.pass)) viewer.postPasses.push(this.waterFluid.pass);
             this._applyFluidVisibility();
@@ -466,10 +502,10 @@
                     const g = p.globalIds[k];
                     if (!this.classes[g] || !pc.n) return;
                     totals[g] += pc.n;
-                    const seg = { dv: p.dv, n: pc.n, off: pc.off, tagOff: pc.tagOff, prev: null };
+                    const seg = { n: pc.n, pos: pc.pos, tag: pc.tag, prev: null };
                     if (this.classes[g].water && fi > 0) {
                         const pf = p.frames[fi - 1] && p.frames[fi - 1].perClass[k];
-                        if (pf && pf.n && pf.tagOff >= 0 && pc.tagOff >= 0) seg.prev = pf;
+                        if (pf && pf.n) seg.prev = pf;
                     }
                     pending[g].push(seg);
                 });
@@ -484,15 +520,7 @@
                 }
                 const arr = attr.array;
                 let w = 0;
-                for (const seg of pending[g]) {
-                    const { dv, n, off } = seg;
-                    for (let j = 0; j < n; j++) {
-                        const x = dv.getFloat32(off + 4 * j, true);
-                        const y = dv.getFloat32(off + 4 * (n + j), true);
-                        const z = dv.getFloat32(off + 4 * (2 * n + j), true);
-                        arr[w++] = x; arr[w++] = z; arr[w++] = -y;
-                    }
-                }
+                for (const seg of pending[g]) { arr.set(seg.pos.subarray(0, seg.n * 3), w); w += seg.n * 3; }
                 cls.count = totals[g];
                 attr.needsUpdate = true;
                 cls.points.geometry.setDrawRange(0, totals[g]);
@@ -522,21 +550,18 @@
                 let map = null;
                 if (s.prev) {
                     map = new Map();
-                    const pn = s.prev.n;
-                    for (let j = 0; j < pn; j++) map.set(s.dv.getInt32(s.prev.tagOff + 4 * j, true), j);
+                    const pn = s.prev.n, pt = s.prev.tag;
+                    for (let j = 0; j < pn; j++) map.set(pt[j], j);
                 }
                 for (let j = 0; j < s.n; j++, h += 3) {
                     const hx = head[h], hy = head[h + 1], hz = head[h + 2];
                     let dx = 0, dy = -MINL, dz = 0; // par défaut : chute verticale
                     if (map) {
-                        const pj = map.get(s.dv.getInt32(s.tagOff + 4 * j, true));
+                        const pj = map.get(s.tag[j]);
                         if (pj !== undefined) {
-                            const pn = s.prev.n, po = s.prev.off;
-                            const px = s.dv.getFloat32(po + 4 * pj, true);
-                            const py = s.dv.getFloat32(po + 4 * (pn + pj), true);
-                            const pz = s.dv.getFloat32(po + 4 * (2 * pn + pj), true);
-                            // repère scène (x, z, -y) ; traînée = 60 % du déplacement
-                            dx = (px - hx) * 0.6; dy = (pz - hy) * 0.6; dz = (-py - hz) * 0.6;
+                            const pp = s.prev.pos;
+                            // traînée = 60 % du déplacement depuis le pas précédent
+                            dx = (pp[3 * pj] - hx) * 0.6; dy = (pp[3 * pj + 1] - hy) * 0.6; dz = (pp[3 * pj + 2] - hz) * 0.6;
                             const L = Math.hypot(dx, dy, dz);
                             if (L > MAXL) { const k = MAXL / L; dx *= k; dy *= k; dz *= k; }
                             else if (L < MINL) { if (L > 1e-6) { const k = MINL / L; dx *= k; dy *= k; dz *= k; } else { dx = 0; dy = MINL; dz = 0; } }
@@ -568,5 +593,5 @@
         }
     }
 
-    global.FDSParticles = { parsePrt5, parseSmvParticles, ParticleLayer, nearestIndex };
+    global.FDSParticles = { parsePrt5Stream, parseSmvParticles, ParticleLayer, nearestIndex };
 })(window);

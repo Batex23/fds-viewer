@@ -218,6 +218,9 @@
         // Préchargement en arrière-plan : particules (affichées dès qu'elles
         // sont prêtes), puis températures des parois (affichées d'office
         // seulement s'il n'y a pas de fumée).
+        // Attendre la fin de l'ouverture (fenêtre de chargement) avant de
+        // lancer les gros téléchargements en arrière-plan.
+        for (let i = 0; i < 240 && document.querySelector('.rl-overlay:not(.rl-hidden)'); i++) await new Promise(r => setTimeout(r, 250));
         if (L.part.available) await loadParticles(true);
         if (a.boundarySets().length) await loadWall(null, !av.smoke);
         if (!av.smoke && !L.wall.on && av.slice) togglePop('slices', $('[data-layer="slices"]', modes));
