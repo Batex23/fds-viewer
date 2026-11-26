@@ -9,7 +9,7 @@
     <link rel="apple-touch-icon" href="assets/sdis33/apple-touch-icon.png">
     <link rel="stylesheet" href="css/style.css?v=20261125a">
     <link rel="stylesheet" href="css/remote.css?v=20261125f">
-    <link rel="stylesheet" href="css/sdis33.css?v=20261125b">
+    <link rel="stylesheet" href="css/sdis33.css?v=20261126l">
     <link rel="stylesheet" href="css/studio.css?v=20261126i">
 </head>
 <body>
@@ -24,11 +24,11 @@
             <span id="model-title"></span>
         </div>
         <div class="page-tabs">
-            <button class="page-tab active" data-page="3d">Géométrie 3D</button>
-            <button class="page-tab" data-page="mesh">Maillage</button>
+            <button class="page-tab" data-page="3d" hidden>Géométrie 3D</button>
+            <button class="page-tab active" data-page="mesh">Maillage</button>
             <button class="page-tab" data-page="fire">Feu &amp; combustion</button>
             <button class="page-tab" data-page="code">Code</button>
-            <button class="page-tab" data-page="output">Résultats</button>
+            <button class="page-tab" data-page="output" hidden>Résultats</button>
             <button class="page-tab" data-page="help" title="Guide d’utilisation">Aide</button>
         </div>
         <div class="actions">
@@ -357,11 +357,11 @@
                 <ul class="help-nav-list">
                     <li><button type="button" class="help-nav-link active" data-help-page="quickstart">Prise en main</button></li>
                     <li><button type="button" class="help-nav-link" data-help-page="share">Partager une simulation</button></li>
-                    <li><button type="button" class="help-nav-link" data-help-page="3d">Géométrie 3D</button></li>
+                    <li hidden><button type="button" class="help-nav-link" data-help-page="3d">Géométrie 3D</button></li>
                     <li><button type="button" class="help-nav-link" data-help-page="mesh">Maillage</button></li>
                     <li><button type="button" class="help-nav-link" data-help-page="fire">Feu &amp; combustion</button></li>
                     <li><button type="button" class="help-nav-link" data-help-page="code">Code</button></li>
-                    <li><button type="button" class="help-nav-link" data-help-page="output">Résultats</button></li>
+                    <li hidden><button type="button" class="help-nav-link" data-help-page="output">Résultats</button></li>
                     <li><button type="button" class="help-nav-link" data-help-page="shortcuts">Raccourcis clavier</button></li>
                     <li><button type="button" class="help-nav-link" data-help-page="troubleshoot">Dépannage</button></li>
                 </ul>
@@ -394,7 +394,7 @@
                         <li><kbd>Maj</kbd> + <kbd>&larr;</kbd>/<kbd>&rarr;</kbd> : pas de temps précédent / suivant.</li>
                         <li><kbd>Échap</kbd> : fermer un panneau ou quitter le mode présentation.</li>
                     </ul>
-                    <p>Le menu <strong>&middot;&middot;&middot;</strong> propose le <em>mode présentation</em> (plein écran) et l’<em>analyse du modèle</em> : l’interface experte avec les onglets Géométrie 3D, Maillage, Feu &amp; combustion et Code.</p>
+                    <p>Le menu <strong>&middot;&middot;&middot;</strong> propose le <em>mode présentation</em> (plein écran) et l’<em>analyse du modèle</em> : l’interface experte avec les onglets Maillage (résolution et rapport D*/dx), Feu &amp; combustion et Code.</p>
                 </section>
 
                 <section class="help-page" data-help-page="share">
@@ -1360,23 +1360,68 @@
                 <button type="button" id="license-close" class="license-close" title="Fermer">&times;</button>
             </div>
             <div class="license-modal-body">
-                <p><strong>Licence MIT</strong> — texte original, qui fait foi :</p>
-                <p>Copyright &copy; 2026 Prof Rino Lovreglio, PhD &mdash; Massey University</p>
-                <p>Permission is hereby granted, free of charge, to any person obtaining a copy
-                    of this software and associated documentation files (the "Software"), to deal
-                    in the Software without restriction, including without limitation the rights
-                    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-                    copies of the Software, and to permit persons to whom the Software is
-                    furnished to do so, subject to the following conditions:</p>
-                <p>The above copyright notice and this permission notice shall be included in
-                    all copies or substantial portions of the Software.</p>
-                <p>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-                    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-                    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-                    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-                    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-                    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-                    SOFTWARE.</p>
+                <p><strong>Licence MIT</strong> — traduction française à titre informatif. Seul le texte original en anglais, reproduit plus bas, fait foi.</p>
+                <p>Copyright &copy; 2026 Prof. Rino Lovreglio, PhD &mdash; Massey University</p>
+                <p>L’autorisation est accordée, gratuitement, à toute personne qui obtient une copie de ce logiciel et des fichiers de
+                    documentation associés (le « Logiciel »), d’utiliser le Logiciel sans restriction, y compris, sans limitation, les droits
+                    d’utiliser, de copier, de modifier, de fusionner, de publier, de distribuer, de sous-licencier et/ou de vendre des copies
+                    du Logiciel, et de permettre aux personnes à qui le Logiciel est fourni de le faire, aux conditions suivantes :</p>
+                <p>La mention de copyright ci-dessus et la présente autorisation doivent figurer dans toutes les copies ou parties
+                    substantielles du Logiciel.</p>
+                <p>LE LOGICIEL EST FOURNI « EN L’ÉTAT », SANS GARANTIE D’AUCUNE SORTE, EXPRESSE OU IMPLICITE, NOTAMMENT SANS GARANTIE DE
+                    QUALITÉ MARCHANDE, D’ADÉQUATION À UN USAGE PARTICULIER ET D’ABSENCE DE CONTREFAÇON. EN AUCUN CAS LES AUTEURS OU LES
+                    TITULAIRES DU COPYRIGHT NE POURRONT ÊTRE TENUS RESPONSABLES DE TOUTE RÉCLAMATION, DE TOUT DOMMAGE OU DE TOUTE AUTRE
+                    RESPONSABILITÉ, QUE CE SOIT DANS LE CADRE D’UN CONTRAT, D’UN DÉLIT OU AUTRE, DÉCOULANT DU LOGICIEL, DE SON UTILISATION
+                    OU D’AUTRES ÉLÉMENTS LIÉS AU LOGICIEL.</p>
+
+                <h4 class="license-h4">Version SDIS 33 — « Visionneuse FDS »</h4>
+                <p>Adaptation pour les Sapeurs-Pompiers de la Gironde (dépôt <a href="https://github.com/Batex23/fds-viewer" target="_blank" rel="noopener">Batex23/fds-viewer</a>),
+                    diffusée sous la même licence MIT. Principales modifications par rapport à FDS Viewer :</p>
+                <ul class="license-list">
+                    <li>Interface entièrement en français aux couleurs du SDIS 33, lecteur simplifié et mode présentation.</li>
+                    <li>Ouverture et partage des simulations par lien depuis Google Drive (dossiers publics ou privés avec connexion Google), explorateur Drive intégré.</li>
+                    <li>Lecture des calculs FDS 5 (SMOKE3D) et FDS 6.</li>
+                    <li>Rendu proche de PyroSim / Smokeview : géométrie lue dans le .smv (murs percés par les HOLE), couleurs des SURF, arêtes, fond ardoise, fumée masquée par les murs.</li>
+                    <li>Portes et obstructions mobiles (HIDE_OBST / SHOW_OBST) synchronisées avec la lecture et signalées sur la frise.</li>
+                    <li>Couches simultanées pilotées par une horloge unique : fumée et flammes, températures des parois, particules, plusieurs plans de coupe.</li>
+                    <li>Particules .prt5, gouttes d’eau rendues en traînées.</li>
+                    <li>Courbes HRR et capteurs DEVC à côté de la 3D, curseur synchronisé.</li>
+                    <li>Repères annotés sur le modèle (pointeur et étiquette), enregistrés dans le dossier de la simulation.</li>
+                </ul>
+                <p><strong>Optimisations de cette version</strong></p>
+                <ul class="license-list">
+                    <li>Lecture jusqu’à ×16 avec saut de pas de temps plutôt que ralentissement ; mise à jour des couches cadencée selon leur coût réel.</li>
+                    <li>Fumée : mise à jour des textures 3D en place d’un pas de temps à l’autre, sans reconstruire maillages et matériaux.</li>
+                    <li>Températures des parois : maillages créés une seule fois, simple repeinture des textures ; échelle calculée une fois pour toute la simulation ; préchargement en arrière-plan.</li>
+                    <li>Géométrie du .smv regroupée par couleur (quelques appels de dessin au lieu d’un par obstruction).</li>
+                    <li>Plans de coupe chargés seulement à la demande ; téléchargements partiels (requêtes Range) pour lire les en-têtes.</li>
+                    <li>Page « Géométrie 3D » retirée : la géométrie n’est plus chargée ni rendue deux fois.</li>
+                    <li>Barre de progression des chargements (fichier en cours, Mo reçus).</li>
+                </ul>
+                <p>Composants tiers : Three.js (licence MIT), polices Bebas Neue et Barlow Semi Condensed (SIL Open Font License, fichiers de licence dans <code>assets/fonts</code>). Logo et charte graphique : SDIS 33, usage réservé.</p>
+
+                <details class="license-original">
+                    <summary>Texte original de la licence (anglais, fait foi)</summary>
+                    <p>Copyright &copy; 2026 Prof Rino Lovreglio, PhD &mdash; Massey University</p>
+                    <p>Permission is hereby granted, free of charge, to any person obtaining a copy
+                        of this software and associated documentation files (the "Software"), to deal
+                        in the Software without restriction, including without limitation the rights
+                        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+                        copies of the Software, and to permit persons to whom the Software is
+                        furnished to do so, subject to the following conditions:</p>
+                    <p>The above copyright notice and this permission notice shall be included in
+                        all copies or substantial portions of the Software.</p>
+                    <p>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+                        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+                        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+                        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+                        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+                        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+                        SOFTWARE.</p>
+                    <p>No responsibility is taken for the use or output of this software. All
+                        simulation results must be independently verified by a qualified fire
+                        engineer before use in any design or regulatory context.</p>
+                </details>
                 <p class="license-disclaimer">Aucune responsabilité n’est assumée quant à l’utilisation ou aux résultats de ce logiciel.
                     Tout résultat de simulation doit être vérifié de façon indépendante par un ingénieur
                     en sécurité incendie qualifié avant toute utilisation en conception ou dans un cadre réglementaire.</p>
@@ -1400,10 +1445,10 @@
     <!-- Application Scripts -->
     <script src="js/sample-data.js?v=20261125c"></script>
     <script src="js/fds-parser.js?v=20261126e"></script>
-    <script src="js/viewer.js?v=20261126e"></script>
+    <script src="js/viewer.js?v=20261126l"></script>
     <script src="js/fds-linter.js?v=20261125c"></script>
     <script src="js/fire-panel.js?v=20261125c"></script>
-    <script src="js/mesh-panel.js?v=20261125c"></script>
+    <script src="js/mesh-panel.js?v=20261126l"></script>
     <script src="js/slice-reader.js?v=20261125c"></script>
     <script src="js/slice-renderer.js?v=20261125c"></script>
     <script src="js/vismap.js?v=20261125c"></script>
@@ -1415,11 +1460,11 @@
     <script src="js/trajectory-reader.js?v=20261125c"></script>
     <script src="js/agent-overlay.js?v=20261125c"></script>
     <script src="js/output-page.js?v=20261126e"></script>
-    <script src="js/app.js?v=20261125d"></script>
+    <script src="js/app.js?v=20261126l"></script>
     <script src="js/config.js?v=20261126g"></script>
-    <script src="js/remote-loader.js?v=20261126i"></script>
-    <script src="js/particles.js?v=20261126k"></script>
+    <script src="js/remote-loader.js?v=20261126l"></script>
+    <script src="js/particles.js?v=20261126l"></script>
     <script src="js/smv-geometry.js?v=20261126e"></script>
-    <script src="js/studio.js?v=20261126k"></script>
+    <script src="js/studio.js?v=20261126l"></script>
 </body>
 </html>

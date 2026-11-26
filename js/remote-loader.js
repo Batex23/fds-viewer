@@ -687,6 +687,8 @@
 
             // 2. Output page: smoke, slices, boundaries — same pipeline as the folder picker.
             setStep('Téléchargement des résultats…');
+            // Un lien partagé s'ouvre toujours dans le lecteur.
+            if (!document.body.classList.contains('studio') && window.FDSStudio) window.FDSStudio.setStudio(true);
             const outTab = document.querySelector('.page-tab[data-page="output"]');
             if (outTab) outTab.click();
             if (typeof window.outputPageLoadFolder !== 'function') {

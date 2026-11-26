@@ -25,7 +25,6 @@ function buildMeshPanel(data) {
             <td>${meshFmtLength(row.cellX)} × ${meshFmtLength(row.cellY)} × ${meshFmtLength(row.cellZ)}</td>
             <td>${meshFmtLength(row.nominalCell)}</td>
             <td>${ratio != null ? meshResolutionBadge(ratio) : '—'}</td>
-            <td>${row.mpiProcess != null ? esc(row.mpiProcess) : '—'}</td>
         </tr>`;
     }).join('');
 
@@ -60,7 +59,7 @@ function buildMeshPanel(data) {
     wrap.innerHTML = `
         <div class="fp-card fp-mesh-card">
             <div class="fp-card-title">
-                Résolution des maillages &amp; calcul parallèle
+                Résolution des maillages
                 <button class="fp-copy-btn" id="fp-copy-mesh">Copier le résumé</button>
             </div>
             <div class="fp-mesh-summary">
@@ -77,10 +76,6 @@ function buildMeshPanel(data) {
                     <strong>${meshInfo.rows.length ? `${meshFmtLength(meshInfo.minCell)} – ${meshFmtLength(meshInfo.maxCell)}` : '—'}</strong>
                 </div>
                 <div class="fp-mesh-metric">
-                    <span class="fp-ov-lbl">Déséquilibre de charge MPI</span>
-                    <strong${imbalance.ok ? '' : ' class="fp-text-warn"'}>${imbalance.text}</strong>
-                </div>
-                <div class="fp-mesh-metric">
                     <span class="fp-ov-lbl">HRR max. retenu</span>
                     <strong>${peakText}</strong>
                 </div>
@@ -95,58 +90,20 @@ function buildMeshPanel(data) {
             </div>
 
             <div class="fp-note">
-                ${fireInfo.peakHRR > 0
-                    ? 'D* est estimé ici à partir du HRR des foyers détectés, avec la température ambiante de <code>&amp;MISC TMPA</code> si elle est renseignée.'
-                    : 'D* nécessite une estimation de la puissance dégagée, par exemple via <code>HRRPUA</code> sur des vents ou un <code>HRRPUV</code> volumique.'}
+                Repères D*/dx : &lt; 4 sous grossier · 4–10 grossier · 10–16 moyen · ≥ 16 fin.
+                ${fireInfo.peakHRR > 0 ? '' : ' D* nécessite une puissance de feu (<code>HRRPUA</code> ou <code>HRRPUV</code>).'}
             </div>
-
-            <div class="fp-grid-2 fp-mesh-thresholds">
-                <div>
-                    <div class="fp-section-label">Seuils D*/dx usuels</div>
-                    <table class="fp-prop-table">
-                        <tr><td>Sous grossier</td><td><strong>&lt; 4</strong></td></tr>
-                        <tr><td>Grossier</td><td><strong>4 à &lt; 10</strong></td></tr>
-                        <tr><td>Moyen</td><td><strong>10 à &lt; 16</strong></td></tr>
-                        <tr><td>Fin</td><td><strong>≥ 16</strong></td></tr>
-                    </table>
-                </div>
-                <div>
-                    <div class="fp-section-label">Situation de ce modèle</div>
-                    <table class="fp-prop-table">
-                        ${ratioSummary}
-                    </table>
-                </div>
-            </div>
-
             <div class="fp-table-wrap">
                 <table class="fp-source-table fp-mesh-table">
                     <thead><tr>
-                        <th>Maillage</th><th>IJK</th><th>Taille de cellule dx × dy × dz</th><th>dx nominal</th><th>D*/dx</th><th>MPI_PROCESS</th>
+                        <th>Maillage</th><th>IJK</th><th>Taille de cellule dx × dy × dz</th><th>dx nominal</th><th>D*/dx</th>
                     </tr></thead>
-                    <tbody>${resolutionRows || '<tr><td colspan="6">Aucune ligne &amp;MESH trouvée.</td></tr>'}</tbody>
+                    <tbody>${resolutionRows || '<tr><td colspan="5">Aucune ligne &amp;MESH trouvée.</td></tr>'}</tbody>
                 </table>
             </div>
 
             ${ifaceHtml}
 
-            <div class="fp-grid-2 fp-mesh-parallel">
-                <div>
-                    <div class="fp-section-label">MPI</div>
-                    <table class="fp-prop-table">
-                        <tr><td>Affectations MPI_PROCESS</td><td>${mpiInfo.assignmentText}</td></tr>
-                        <tr><td>Nombre de rangs MPI conseillé</td><td>${mpiInfo.rankText}</td></tr>
-                    </table>
-                </div>
-                <div>
-                    <div class="fp-section-label">OpenMP</div>
-                    <table class="fp-prop-table">
-                        <tr><td>Réglage des threads</td><td>${ompInfo.settingText}</td></tr>
-                        <tr><td>Remarque</td><td>${ompInfo.note}</td></tr>
-                    </table>
-                </div>
-            </div>
-
-            ${codeBlock('Code FDS &MESH', (data.meshes || []).map(rawOf))}
 
             <div class="fp-note fp-bottom-note">
                 Le diamètre caractéristique du feu et le rapport <strong>D*/dx</strong> sont de bons premiers contrôles, mais ne prouvent pas que le

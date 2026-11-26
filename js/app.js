@@ -6,6 +6,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('viewer-container');
     const viewer = new FDSViewer(container);
+    // Page « Géométrie 3D » retirée (la 3D est dans le lecteur) : cette vue
+    // n'est plus alimentée ni rendue, ce qui évite un second chargement de
+    // la géométrie et une boucle de rendu inutile.
+    viewer.paused = true;
     const parser = new FDSParser();
 
     let currentData = null;
@@ -96,21 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
             container.style.display = 'block';
             document.getElementById('sidebar').classList.add('active');
             document.body.classList.add('has-data');
-            activatePage(document.body.classList.contains('studio') ? 'output' : '3d');
-
-            viewer.loadData(currentData);
-            updateStats();
-            updateInfoPanel(null);
-            initClipPanel();
-
-            // Re-apply UI state that fresh scene reset to defaults.
-            const opacityEl = document.getElementById('obst-opacity');
-            if (opacityEl) viewer.setObstOpacity(parseFloat(opacityEl.value));
-            const grayEl = document.getElementById('scene-grayscale');
-            if (grayEl && grayEl.checked) viewer.setGrayscale(true);
-
-            // Trigger resize after the 3D layout is visible
-            viewer._onResize();
+            activatePage(document.body.classList.contains('studio') ? 'output' : 'mesh');
 
             // Build fire & combustion panel
             if (typeof buildFirePanel === 'function') {

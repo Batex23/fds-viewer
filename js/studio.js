@@ -509,7 +509,9 @@
         if (!on && legendEl) legendEl.hidden = true;
         lsSet(LS_UI, on ? 'studio' : 'expert');
         closePop(); closeMenu(); drawer('left', false); drawer('right', false);
-        const tab = $(`.page-tab[data-page="${on ? 'output' : (page || 'output')}"]`);
+        // Mode avancé : Maillage, Feu & combustion, Code (la 3D et les
+        // résultats sont dans le lecteur).
+        const tab = $(`.page-tab[data-page="${on ? 'output' : (page || 'mesh')}"]`);
         if (tab) tab.click();
         const v = api() && api().getViewer();
         if (v) setTimeout(() => v._onResize(), 30);
@@ -2417,8 +2419,8 @@
         wireDrop();
         const studio = lsGet(LS_UI) !== 'expert';
         document.body.classList.toggle('studio', studio);
-        if (studio) {
-            const tab = $('.page-tab[data-page="output"]');
+        {
+            const tab = $(`.page-tab[data-page="${studio ? 'output' : 'mesh'}"]`);
             if (tab) tab.click();
         }
         // Le mode visite peut se terminer tout seul (Échap) : on suit l'état.

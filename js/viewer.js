@@ -339,6 +339,7 @@ class FDSViewer {
 
     _animate() {
         requestAnimationFrame(() => this._animate());
+        if (this.paused) return;
         if (this.walkMode) {
             const now = performance.now();
             const dt = Math.min(0.1, (now - (this.walkPrevTime || now)) / 1000);
